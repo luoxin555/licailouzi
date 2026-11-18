@@ -23,7 +23,7 @@
   --brand:#2b62f0;--brand-soft:#e9efff;--brand-ink:#fff;
   --up:#e0332b;--down:#0e9c6d;--warn:#b5730a;
   --shadow:0 1px 2px rgba(18,22,28,.04),0 10px 30px -14px rgba(18,22,28,.22);
-  --r:18px;
+  --r:18px;--r-sm:14px;--gap:12px;
 }
 @media (prefers-color-scheme:dark){
   :root{--bg:#0b0e12;--card:#151a21;--card2:#1b2129;--text:#e9edf3;--muted:#8d97a6;
@@ -101,13 +101,19 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
 
 /* stats */
 .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 13px;box-shadow:var(--shadow)}
-.stat span{display:block;color:var(--muted);font-size:11.5px;margin-bottom:3px}
-.stat b{font-size:16px;font-weight:650;letter-spacing:-.2px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cash-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.cash-line b{font-size:clamp(22px,7vw,30px);letter-spacing:-.4px}
+.cash-line span{color:var(--muted);font-size:12.5px;line-height:1.5}
+/* 统计格：标签在左、金额在右，金额一律等宽数字 + 右对齐，扫一眼就能纵向对齐比大小 */
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 13px;
+  box-shadow:var(--shadow);display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.stat span{color:var(--muted);font-size:11.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat b{font-size:16px;font-weight:650;letter-spacing:-.2px;flex:0 0 auto;text-align:right;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 
 /* list items */
 .list{display:flex;flex-direction:column;gap:10px}
-.item{border:1px solid var(--line);border-radius:14px;padding:13px;background:var(--card2)}
+.item{border:1px solid var(--line);border-radius:var(--r-sm);padding:13px;background:var(--card2)}
 .item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .item-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
 .item-title b{font-size:14.5px;font-weight:650}
@@ -123,7 +129,8 @@ input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-ca
   padding-top:11px;border-top:1px dashed var(--line)}
 .kv>div{min-width:0}
 .kv span{display:block;color:var(--muted);font-size:11px}
-.kv b{display:block;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kv b{display:block;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .item-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
 .src{font-size:11px;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
 .src::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--muted);opacity:.5}
@@ -296,7 +303,39 @@ img,svg,canvas,video{max-width:100%}
 .pill.off{background:var(--card2);color:var(--muted)}
 .item-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .item-foot .src{flex:1 1 auto;min-width:0}
-.foot-note{color:var(--muted);font-size:11px;line-height:1.6}
+/* 批量录入净值的预览表：一行一眼，可更新 / 不在账本 / 认不出 三种状态分色 */
+.nv-table{margin-top:10px;border-top:1px solid var(--line)}
+.nv-row{display:grid;grid-template-columns:60px minmax(0,1fr) 66px 66px;gap:6px;align-items:baseline;
+  padding:5px 0;border-bottom:1px dashed var(--line);font-size:12px;font-variant-numeric:tabular-nums}
+.nv-row.nv-head{color:var(--muted);font-size:11px;border-bottom-style:solid}
+.nv-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nv-row .nv-ok{color:var(--down);font-weight:600}
+.nv-row .nv-miss{color:var(--warn)}
+.nv-row .nv-bad{color:var(--up);grid-column:1/-1;white-space:normal}
+.nv-note{color:var(--muted);font-size:11.5px;margin-top:8px;line-height:1.6}
+
+/* 空状态：一张卡说清楚「还没数据 + 从哪开始」，不留一片空白 */
+.empty-card{text-align:center;color:var(--muted);font-size:12.5px;line-height:1.75;padding:20px 16px}
+.empty-card b{display:block;color:var(--text);font-size:14px;margin-bottom:4px}
+.empty-card code{font-family:inherit;color:var(--brand);font-weight:600}
+
+/* 桌面：一行四格 + 更宽的阅读区；窄屏（SE / 320px）：两格、整体收一号 */
+@media (min-width:720px){
+  .wrap{max-width:880px}
+  .stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .card{padding:18px 20px;border-radius:20px}
+  .stat{padding:12px 14px}
+  .stat b{font-size:16.5px}
+}
+@media (max-width:380px){
+  .wrap{padding:0 11px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .stat{padding:10px 11px}
+  .stat span{font-size:10.5px}
+  .stat b{font-size:14px}
+  .kv{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .card{padding:13px}
+}
 .netbar{background:#b5730a;color:#fff;font-size:12.5px;text-align:center;letter-spacing:.2px;
   padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
 .netbar[hidden]{display:none}
@@ -329,6 +368,12 @@ img,svg,canvas,video{max-width:100%}
         </div>
       </div>
 
+      <div class="card empty-card" id="ovEmpty" hidden>
+        <b>还没有任何记录</b>
+        从下面任一入口开始：<code>持仓</code> 记基金股票、<code>存款</code> 记定存与现金、<code>借款</code> 记借出去的钱。
+        数据只存在这台设备的浏览器里，记得偶尔「导出 JSON」留个备份。
+      </div>
+
       <div class="card">
         <div class="card-head"><h2>资产分布</h2><span class="hint" id="ovAllocNote"></span></div>
         <div class="alloc" id="ovAlloc"></div>
@@ -357,6 +402,7 @@ img,svg,canvas,video{max-width:100%}
           <div class="head-actions">
             <button class="btn small" data-add="fund">＋ 基金</button>
             <button class="btn small" data-add="stock">＋ 股票</button>
+            <button class="btn small" id="btnBatchNav">批量净值</button>
           </div>
         </div>
         <div id="holdList" class="list"></div>
@@ -366,6 +412,16 @@ img,svg,canvas,video{max-width:100%}
 
     <!-- 存款 -->
     <section class="view" id="view-deposits" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2>现金</h2>
+          <button class="btn small" id="btnCashEdit">调整余额</button>
+        </div>
+        <div class="cash-line">
+          <b class="num" id="cashValue">¥0.00</b>
+          <span>手上的活钱。借款借出去会从现金里扣，收回本金会加回来；利息不先进现金，单独算到「利息」里计入总资产。</span>
+        </div>
+      </div>
       <div class="card">
         <div class="card-head">
           <h2>银行定期存款</h2>
@@ -386,7 +442,7 @@ img,svg,canvas,video{max-width:100%}
         <div class="stats" id="loanStats"></div>
         <div id="loanList" class="list"></div>
       </div>
-      <p class="hint" style="padding:0 4px 8px">这里记的是<b>借出去的钱</b>（别人欠你）。利息按单利、未还本金分段算到今天：每还一笔，从还款日起按剩下的本金计息。还款不动现金余额，需要的话自己去「设置」里改现金。到期未还会在「概览 → 到期提醒」里标红。</p>
+      <p class="hint" style="padding:0 4px 8px">这里记的是<b>借出去的钱</b>（别人欠你）。利息按单利、未还本金分段算到今天：每还一笔，从还款日起按剩下的本金计息。借出去的钱从「存款 → 现金」里扣，收回本金会加回现金；利息单独计入总资产的「利息」一项。到期未还会在「概览 → 到期提醒」里标红。</p>
     </section>
 
     <!-- 设置 -->
@@ -679,15 +735,18 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " +
     p(d.getHours()) + ":" + p(d.getMinutes());
 }
-const APP_VERSION = "2026-11-18.18";
+const APP_VERSION = "2026-11-18.24";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
 let migratedReps = 0;
+/* 旧版借款没从现金里扣过：一次性补扣的金额（启动时提示一次） */
+let cashMigrated = 0;
 
 function normalize(raw) {
   droppedReps = 0;
   migratedReps = 0;
+  cashMigrated = 0;
   const s = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
   const out = defaultState();
   out.cash = num(s.cash);
@@ -824,6 +883,11 @@ function normalize(raw) {
     };
   });
   /* 借出款：每条下面挂 repayments[]（一笔借款可以分多次还） */
+  /* 旧版本的借款借出去时没扣现金：标记一下，等 out.loans 建好后一次性补扣 */
+  const unbooked = new Set();
+  (Array.isArray(s.loans) ? s.loans : []).forEach(function (rl, i) {
+    if (rl && typeof rl === "object" && !Array.isArray(rl) && rl.cashBooked === undefined) unbooked.add(i);
+  });
   out.loans = (Array.isArray(s.loans) ? s.loans : []).map(function (rawL) {
     const l = (rawL && typeof rawL === "object" && !Array.isArray(rawL)) ? rawL : {};
     const repSeen = new Set();
@@ -876,9 +940,24 @@ function normalize(raw) {
       rate: Math.max(0, Math.min(LOAN_MAX_RATE, num(l.rate))),
       repayments: reps,
       note: asStr(l.note),
-      updatedAt: Math.max(0, num(l.updatedAt))
+      updatedAt: Math.max(0, num(l.updatedAt)),
+      cashBooked: l.cashBooked !== false
     };
   });
+  /* 补扣一次：旧借款的未还本金本来就在现金里，不扣就等于同一笔钱算两次 */
+  if (unbooked.size) {
+    let cashOut = 0;
+    /* 这里不能调 loanCalc：它读 state.settings，而 normalize 正跑在 let state = load() 里面 */
+    out.loans.forEach(function (l, i) {
+      if (!unbooked.has(i)) return;
+      const repaid = (l.repayments || []).reduce(function (a, x) { return a + (x.kind === "principal" ? num(x.amount) : 0); }, 0);
+      cashOut += Math.max(0, Math.max(0, num(l.amount)) - repaid);
+    });
+    if (cashOut > 0.004) {
+      out.cash = Math.round((num(out.cash) - cashOut) * 100) / 100;
+      cashMigrated = cashOut;
+    }
+  }
   return out;
 }
 
@@ -893,6 +972,12 @@ function load() {
     if (migratedReps > 0) {
       const m = migratedReps;
       setTimeout(function () { toast(m + " 条老还款记录已拆成「还款（本金）」「已付利息」两条，总金额与未还本金不变"); }, 3200);
+    }
+    if (cashMigrated > 0) {
+      const cm = cashMigrated;
+      setTimeout(function () {
+        toast("借款改为从现金里扣：已把旧借款未还的本金 " + money(cm) + " 从现金余额里扣掉，总资产不变");
+      }, 4800);
     }
     return st;
   } catch (e) {
@@ -1112,7 +1197,9 @@ function totals() {
     const c = depositCalc(d);
     principal += num(d.principal); accrued += c.accrued; matInterest += c.interest;
   });
-  /* 借出款：未还本金 + 未收利息算资产；已收的利息不再是应收（不重复计） */
+  /* 借款借出 = 现金 → 借出（未还本金）：一头减一头加，总资产不变，不会凭空多出一笔钱；
+     收到本金 = 借出 → 现金，同样不变；已收利息没进现金，单独作为「利息」计入总资产；
+     未收利息只是应收，不进任何合计 */
   let loanBalance = 0, loanDue = 0, loanAccrued = 0, loanReceived = 0, loanRepaid = 0;
   state.loans.forEach(function (l) {
     const c = loanCalc(l);
@@ -1123,11 +1210,11 @@ function totals() {
     loanRepaid += c.repaidPrincipal;
   });
   const cash = num(state.cash);
-  const total = mv + principal + cash + loanBalance + loanDue;
+  const total = mv + principal + cash + loanBalance + loanReceived;
   const floatPL = mv - cost;
   /* 收益按权责发生制：已收的利息也算收益，所以这里用应计口径 */
-  const profit = floatPL + realized + accrued + loanAccrued;
-  const invested = cost + principal + loanBalance;
+  const profit = floatPL + realized + accrued;
+  const invested = cost + principal;
   return { mv, cost, realized, principal, accrued, matInterest, cash, loanBalance, loanDue, loanAccrued, loanReceived,
     loanRepaid, loanCash: loanRepaid + loanReceived,
     total, floatPL, profit, invested,
@@ -1135,6 +1222,16 @@ function totals() {
 }
 
 /* ============ 渲染：概览 ============ */
+/* 统计格的唯一渲染口：概览 / 分红 / 定存 / 借款四处共用，别再各抄一份 map */
+function statRow(label, value, cls, title) {
+  return '<div class="stat"' + (title ? ' title="' + esc(title) + '"' : "") + "><span>" + esc(label) +
+    '</span><b class="num' + (cls ? " " + cls : "") + '">' + value + "</b></div>";
+}
+function paintStats(el, rows) {
+  const box = typeof el === "string" ? $(el) : el;
+  if (box) box.innerHTML = rows.map(function (r) { return statRow(r[0], r[1], r[2], r[3]); }).join("");
+}
+
 function renderOverview() {
   const t = totals();
   const dv = dividendTotals();
@@ -1143,8 +1240,8 @@ function renderOverview() {
   $("#ovProfit").className = "num " + plClass(t.profit);
   $("#ovRate").textContent = t.invested > 0 ? pct(t.rate) : "—";
   $("#ovRate").className = "num " + plClass(t.profit);
-  $("#ovAccrued").textContent = money(t.accrued + t.loanDue);
-  $("#ovAccrued").title = "定存应计利息 " + money(t.accrued) + " + 借款未收利息 " + money(t.loanDue);
+  $("#ovAccrued").textContent = money(t.accrued);
+  $("#ovAccrued").title = "定存应计利息（借款利息不计入总资产，也不在这里显示）";
   $("#ovAsOf").textContent = dataAsOfText();
   $("#ovAsOf").title = state.holdings.some(h => h.priceDate)
     ? "持仓最新的净值 / 行情日期，不是抓取时间"
@@ -1155,7 +1252,8 @@ function renderOverview() {
     { k: "基金", v: state.holdings.filter(h => h.kind === "fund").reduce((a, h) => a + holdingStats(h).mv, 0), c: "var(--brand)" },
     { k: "股票", v: state.holdings.filter(h => h.kind === "stock").reduce((a, h) => a + holdingStats(h).mv, 0), c: "var(--up)" },
     { k: "定存", v: t.principal, c: "var(--down)" },
-    { k: "借出", v: t.loanBalance + t.loanDue, c: "#7c4dff" },
+    { k: "借出", v: t.loanBalance, c: "#7c4dff" },
+    { k: "利息", v: t.loanReceived, c: "#00b8a9" },
     { k: "现金", v: t.cash, c: "var(--warn)" }
   ].filter(p => p.v > 0.004);
   const sum = parts.reduce((a, p) => a + p.v, 0);
@@ -1181,25 +1279,26 @@ function renderOverview() {
     ["已实现盈亏", signedMoney(t.realized), plClass(t.realized)],
     ["定存本金", money(t.principal), ""],
     ["定存应计利息", money(t.accrued), "up"],
-    ["借出未还本金", money(t.loanBalance), ""],
-    ["借款未收利息", money(t.loanDue), t.loanDue > 0 ? "up" : ""],
-    ["借出已收利息", money(t.loanReceived), t.loanReceived > 0 ? "down" : ""],
-    ["借出实际收款", money(t.loanCash), t.loanCash > 0 ? "" : ""],
+    /* 借款里「已付利息」记录的合计：和资产分布里的「利息」是同一个数，同源同口径，不另存一份 */
+    ["已付利息", money(t.loanReceived), t.loanReceived > 0 ? "down" : "", "借款里记的已付利息合计，已计入总资产的「利息」；未收利息不算"],
     ["现金 / 备用金", money(t.cash), ""],
     ["累计分红", money(dv.total), dv.total > 0 ? "up" : ""]
   ];
-  $("#ovStats").innerHTML = stats.map(s =>
-    '<div class="stat"><span>' + s[0] + '</span><b class="num ' + s[2] + '">' + s[1] + '</b></div>').join("");
+  paintStats("#ovStats", stats);
+  const ovEmpty = $("#ovEmpty");
+  if (ovEmpty) {
+    ovEmpty.hidden = !(state.holdings.length === 0 && state.deposits.length === 0 && state.loans.length === 0);
+  }
 
   // 分红与再投资
   $("#ovDivNote").textContent = dv.count ? "共 " + dv.count + " 笔" : "";
-  $("#ovDivStats").innerHTML = [
+  paintStats("#ovDivStats", [
     ["现金分红", money(dv.cash), ""],
     ["其中红利再投资", money(dv.reinvest), dv.reinvest > 0 ? "up" : ""],
     ["再投资新增份额", fmtNum(dv.newShares, 4) + " 份", ""],
     ["再投资复利贡献", signedMoney(dv.gain), plClass(dv.gain)],
     ["近两年贡献", signedMoney(dv.recent), plClass(dv.recent)]
-  ].map(s => '<div class="stat"><span>' + s[0] + '</span><b class="num ' + s[2] + '">' + s[1] + '</b></div>').join("");
+  ]);
   $("#ovDivHint").textContent = dv.count
     ? "复利贡献 = 再投资新增份额 ×（现价 − 折算价），已经包含在上面的浮动盈亏里，不是额外收益。"
     : "记分红时选「红利再投资」，除息日按净值折算成份额，之后涨跌就形成复利。";
@@ -1230,11 +1329,11 @@ function renderOverview() {
         days: x.c.overdueDays > 0 ? -x.c.overdueDays : left,
         html: '<div class="item"><div class="item-top"><div class="item-title"><span class="tag loan">借款</span>' +
           '<b>' + esc(x.l.borrower || "未填借款人") + '</b></div>' +
-          '<div class="item-value"><div class="num strong">' + money(x.c.balance, 0) + '</div>' +
+          '<div class="item-value"><div class="num strong">' + money(x.c.balance + x.c.interestDue, 0) + '</div>' +
           '<div class="small ' + (x.c.overdueDays > 0 ? "warn" : "up") + '">' + tag + '</div></div></div>' +
-          '<div class="kv"><div><span>到期日</span><b class="num">' + x.c.maturity + '</b></div>' +
-          '<div><span>未收利息</span><b class="num up">' + money(x.c.interestDue) + '</b></div>' +
-          '<div><span>已付利息</span><b class="num down">' + money(x.c.interestPaid) + '</b></div>' +
+          '<div class="kv"><div><span>应还金额</span><b class="num">' + money(x.c.balance + x.c.interestDue) + '</b></div>' +
+          '<div><span>未还本金</span><b class="num">' + money(x.c.balance) + '</b></div>' +
+          '<div><span>到期日</span><b class="num">' + x.c.maturity + '</b></div>' +
           '<div><span>年利率</span><b class="num">' + num(x.l.rate).toFixed(2) + '%</b></div></div></div>'
       };
     });
@@ -1362,6 +1461,8 @@ function renderHoldings() {
 /* ============ 渲染：存款 ============ */
 function renderDeposits() {
   const box = $("#depList");
+  const cashEl = $("#cashValue");
+  if (cashEl) cashEl.textContent = money(state.cash);
   if (!state.deposits.length) {
     box.innerHTML = '<div class="empty"><b>还没有定期存款</b>点右上「＋ 新增」录入一笔</div>';
     $("#depStats").innerHTML = "";
@@ -1374,12 +1475,12 @@ function renderDeposits() {
     return { d, c };
   }).sort((a, b) => a.c.remaining - b.c.remaining);
 
-  $("#depStats").innerHTML = [
+  paintStats("#depStats", [
     ["本金合计", money(principal), ""],
     ["到期利息合计", money(matInterest), "up"],
     ["已计利息合计", money(accrued), "up"],
     ["加权年利率", principal > 0 ? (rows.reduce((a, x) => a + num(x.d.principal) * num(x.d.rate), 0) / principal).toFixed(2) + "%" : "—", ""]
-  ].map(s => '<div class="stat"><span>' + s[0] + '</span><b class="num ' + s[2] + '">' + s[1] + '</b></div>').join("");
+  ]);
 
   box.innerHTML = rows.map(function (x) {
     const d = x.d, c = x.c;
@@ -1440,15 +1541,15 @@ function renderLoans() {
   const balance = rows.reduce((a, x) => a + x.c.balance, 0);
   const due = rows.reduce((a, x) => a + x.c.interestDue, 0);
   const overdue = rows.filter(x => x.c.overdueDays > 0).length;
-  $("#loanStats").innerHTML = [
+  paintStats("#loanStats", [
     ["借出本金", money(P), ""],
     ["已还本金", money(repaidP), repaidP > 0 ? "down" : ""],
     ["已付利息", money(paidInt), paidInt > 0 ? "down" : ""],
     ["实际收款", money(repaidP + paidInt), ""],
     ["未还本金", money(balance), ""],
-    ["未收利息", money(due), due > 0 ? "up" : ""],
+    ["未收利息", money(due), due > 0 ? "up" : "", "只是应收，不计入总资产"],
     ["逾期", overdue + " 笔", overdue > 0 ? "warn" : ""]
-  ].map(s => '<div class="stat"><span>' + s[0] + '</span><b class="num ' + s[2] + '">' + s[1] + '</b></div>').join("");
+  ]);
 
   if (!rows.length) {
     box.innerHTML = '<div class="empty"><b>还没有借出记录</b>点右上角「＋ 新增」记一笔借出去的钱</div>';
@@ -1503,7 +1604,7 @@ function renderLoans() {
         '<div><span>已付利息</span><b class="num down">' + money(c.interestPaid) + '</b></div>' +
         '<div><span>实际收款</span><b class="num">' + money(c.receivedCash) + '</b></div>' +
         '<div><span>未还本金</span><b class="num">' + money(c.balance) + '</b></div>' +
-        '<div><span>未收利息</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
+        '<div title="只是应收，不计入总资产"><span>未收利息</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
         '<div><span>本息合计</span><b class="num">' + money(c.total) + '</b></div>' +
         '<div><span>到期日</span><b class="num">' + esc(c.maturity) + '</b></div>' +
       '</div>' +
@@ -1725,6 +1826,105 @@ function openTrade(id, side) {
 }
 
 /* ============ 改价 ============ */
+/* ============ 批量录入净值 ============ */
+/* 全角 → 半角：从微信、Excel、天天基金拷过来常是「００５４５５　１.０７２６」 */
+function halfWidth(s) {
+  return String(s == null ? "" : s)
+    .replace(/[\uFF01-\uFF5E]/g, function (ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); })
+    .replace(/[\u3000\u00a0]/g, " ")
+    .replace(/[\uFF0C\u3001]/g, ",");
+}
+
+/* 一行 = 代码 + 净值（+ 可选日期）。认不出的一律返回 ok:false，绝不猜、绝不写 0 */
+function parseNavLine(line) {
+  const raw = halfWidth(line).trim();
+  if (!raw) return null;
+  /* 代码必须顶格（6 位，前面最多带 sh/sz/bj）；后面紧跟数字说明是别的格式，宁可认不出也不猜 */
+  const cm = raw.match(/^(?:sh|sz|bj)?(\d{6})(?![0-9])/i);
+  const code = cm ? cm[1] : "";
+  let rest = cm ? raw.slice(cm[0].length) : raw;
+  /* 先把日期摘走，免得 2026 被当成净值 */
+  let date = "";
+  const dm = rest.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (dm) {
+    date = dm[1] + "-" + ("0" + dm[2]).slice(-2) + "-" + ("0" + dm[3]).slice(-2);
+    rest = rest.slice(0, dm.index) + " " + rest.slice(dm.index + dm[0].length);
+  }
+  /* 千分位（1,450.00）要先认出来，否则会被逗号切成两段 */
+  const pm = rest.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/);
+  const price = pm ? Number(pm[0].replace(/,/g, "")) : null;
+  return { raw: raw, code: code, price: price, date: date };
+}
+
+/* 拆成「能写的 / 不在账本里的 / 认不出的」三堆，写之前先给用户看 */
+function planBatchNav(text) {
+  const out = { ok: [], miss: [], bad: [] };
+  const seen = new Set();
+  String(text || "").split(/\r?\n/).forEach(function (line) {
+    const r = parseNavLine(line);
+    if (!r) return;
+    if (!r.code || !(r.price > 0)) { out.bad.push(r.raw); return; }
+    if (seen.has(r.code)) { out.bad.push(r.raw + "（重复）"); return; }
+    const h = state.holdings.find(function (x) { return String(x.code) === r.code; });
+    if (!h) { out.miss.push({ raw: r.raw, code: r.code, price: r.price }); return; }
+    seen.add(r.code);
+    out.ok.push({ h: h, code: r.code, name: h.name || "", from: h.mmf ? h.moneyPer10k : h.price, price: r.price, date: r.date || todayISO(), mmf: !!h.mmf });
+  });
+  return out;
+}
+
+function nvPreviewHTML(res) {
+  const row = function (a, b, c, d) {
+    return '<div class="nv-row"><span>' + esc(a) + "</span><span>" + esc(b) + "</span><span>" + esc(c) + "</span><span>" + esc(d) + "</span></div>";
+  };
+  let html = '<div class="nv-table"><div class="nv-row nv-head"><span>代码</span><span>名称</span><span>原价</span><span>新价</span></div>';
+  res.ok.forEach(function (x) {
+    html += row(x.code, x.name + (x.mmf ? "（万份收益）" : ""), x.from == null || x.from === "" ? "—" : Number(x.from).toFixed(4), Number(x.price).toFixed(4));
+  });
+  res.miss.forEach(function (x) { html += '<div class="nv-row"><span class="nv-miss">' + esc(x.code) + '</span><span class="nv-miss">账本里没有这只，跳过</span><span></span><span>' + Number(x.price).toFixed(4) + "</span></div>"; });
+  res.bad.forEach(function (x) { html += '<div class="nv-row"><span class="nv-bad">认不出：' + esc(x) + "</span></div>"; });
+  html += "</div>";
+  html += '<p class="nv-note">只写上面「可更新」的 ' + res.ok.length + " 只；跳过 " + res.miss.length + " 只、认不出 " + res.bad.length + " 行。" +
+    "写入后来源记为「手动」，净值日期用行内日期，没写就记今天；自动刷新恢复后照常可以覆盖。</p>";
+  return html;
+}
+
+function openBatchNav() {
+  if (!state.holdings.length) { toast("还没有持仓，先加一只基金或股票"); return; }
+  let pending = null;
+  const ov = Sheet.open("批量录入净值 · v" + APP_VERSION,
+    field("每行一条：代码 + 净值",
+      '<textarea name="navText" rows="6" placeholder="005455 1.0726&#10;002750 1.0215 2026-11-18&#10;600519,1450.00"></textarea>') +
+    '<p class="hint">空格、逗号、制表符都能分隔，可以直接从天天基金或 Excel 里整列粘贴；全角数字、千分位会自动转换。' +
+    "只会更新账本里已有的代码，认不出的行单独列出来，不会动你的数据。</p>" +
+    '<div id="batchPreview"></div>',
+    function (d) {
+      if (pending) {
+        pending.ok.forEach(function (x) {
+          const h = x.h;
+          if (x.mmf) { h.moneyPer10k = x.price; h.price = 1; } else { h.price = x.price; }
+          h.priceDate = x.date;
+          h.source = "manual";
+          h.priceAt = Date.now();
+          h.failMsg = "";
+          touchRec(h);
+        });
+        commit();
+        toast("已更新 " + pending.ok.length + " 只" + (pending.miss.length ? "，跳过 " + pending.miss.length + " 只" : ""));
+        return true;
+      }
+      const res = planBatchNav(d.navText);
+      if (!res.ok.length && !res.miss.length && !res.bad.length) { toast("先粘贴「代码 净值」，一行一条"); return false; }
+      const box = $("#batchPreview", ov);
+      if (box) box.innerHTML = nvPreviewHTML(res);
+      if (!res.ok.length) { toast("没有一只能对上账本里的代码，什么都没写"); return false; }
+      pending = res;
+      const btn = ov.querySelector('button[type="submit"]');
+      if (btn) btn.textContent = "确认写入 " + res.ok.length + " 只";
+      return false;
+    }, "下一步");
+}
+
 function openPrice(id) {
   const h = state.holdings.find(x => x.id === id);
   if (!h) return;
@@ -1799,8 +1999,8 @@ function openDividend(hid) {
       '<label><input type="radio" name="divMode" value="reinvest" data-divmode data-hid="' + esc(h.id) + '"' +
         (h.divMode === "reinvest" ? " checked" : "") + '><span>红利再投资</span></label></div>') +
     '<div class="stats" style="margin-bottom:10px">' +
-      '<div class="stat"><span>累计分红</span><b class="num">' + money(st.total) + '</b></div>' +
-      '<div class="stat"><span>其中再投资</span><b class="num up">' + money(st.reinvest) + '</b></div>' +
+      statRow("累计分红", money(st.total)) +
+      statRow("其中再投资", money(st.reinvest), "up") +
     '</div>' +
     '<div class="div-list">' + rows + '</div>' +
     '<div class="btn-grid" style="margin-top:10px">' +
@@ -2039,6 +2239,31 @@ function openDepositForm(id) {
 }
 
 /* ============ 借款表单 ============ */
+/* 借款 ↔ 现金的唯一资金流：借出去扣现金，收回本金加回来。
+   利息不在这里动 —— 已收利息单独作为「利息」计入总资产，免得同一笔钱记两遍。 */
+function cashDelta(delta) {
+  const d = num(delta);
+  if (!d) return 0;
+  state.cash = Math.round((num(state.cash) + d) * 100) / 100;
+  return d;
+}
+
+/* 存款页的「现金」入口：只改余额本身 */
+function openCashForm() {
+  Sheet.open("调整现金余额 · v" + APP_VERSION,
+    field("现金余额（元）", '<input name="cash" type="text" inputmode="decimal" value="' + num(state.cash) + '">') +
+    '<p class="hint">这里填的是<b>当前手上还剩多少现金</b>，不是变动金额。可以是负数（说明现金已经花超了）。' +
+    '借款借出去会自动扣、收回本金会自动加，利息不经过现金。</p>',
+    function (v) {
+      const t = numText(v.cash);
+      if (!t.ok) { toast("现金余额填的不是数字"); return false; }
+      state.cash = t.empty ? 0 : t.value;
+      commit();
+      toast("现金余额已改为 " + money(state.cash));
+      return true;
+    }, "保存");
+}
+
 function openLoanForm(id) {
   const l = id ? state.loans.find(x => x.id === id) : null;
   const unit = l ? l.termUnit : "month";
@@ -2081,11 +2306,19 @@ function openLoanForm(id) {
       termValue: termValue, termUnit: v.termUnit || "month", rate: rate,
       note: String(v.note || "").trim()
     };
-    if (l) Object.assign(l, payload);
-    else state.loans.push(Object.assign({ id: uid(), repayments: [] }, payload));
-    touchRec(l || state.loans[state.loans.length - 1]);
+    if (l) {
+      /* 改金额就是改「借出去多少」：多借出去再扣一笔，少借就退回现金 */
+      const diff = amount - num(l.amount);
+      Object.assign(l, payload);
+      cashDelta(-diff);
+      touchRec(l);
+    } else {
+      state.loans.push(Object.assign({ id: uid(), repayments: [], cashBooked: true }, payload));
+      cashDelta(-amount);                       /* 借出去的钱从现金里出 */
+      touchRec(state.loans[state.loans.length - 1]);
+    }
     commit();
-    toast(l ? "借款已更新" : "借款已添加");
+    toast(l ? "借款已更新（现金已按差额调整）" : "借款已添加，现金已扣 " + money(amount));
   });
 }
 /* 还款金额 / 已付利息的唯一校验口径：弹窗、快捷还款、导入全都走这里 */
@@ -2107,8 +2340,11 @@ function saveRepayment(l, rep, payload) {
   const chk = validateRepayment(payload.kind, payload.amount);
   if (!chk.ok) { toast(chk.msg); return false; }
   const clean = { kind: chk.kind, amount: chk.amount, date: payload.date, note: String(payload.note || "") };
+  /* 只有本金还款会进现金：收回多少本金，现金就加多少（编辑时按差额补） */
+  const prev = rep && rep.kind !== "interest" ? num(rep.amount) : 0;
   if (rep) Object.assign(rep, clean);
   else l.repayments.push(Object.assign({ id: uid() }, clean));
+  if (chk.kind === "principal") cashDelta(chk.amount - prev);
   return true;
 }
 
@@ -2834,8 +3070,8 @@ function openSyncPreview(text, label) {
   const body =
     field("来源", '<div class="static">' + esc(label || parsed.label) + '</div>') +
     '<div class="stats" style="margin-bottom:10px">' +
-      '<div class="stat"><span>新增</span><b class="num down">' + cnt.add + ' 条</b></div>' +
-      '<div class="stat"><span>需要确认</span><b class="num">' + (cnt.update + cnt.keep + cnt.conflict) + ' 条</b></div>' +
+      statRow("新增", cnt.add + " 条", "down") +
+      statRow("需要确认", (cnt.update + cnt.keep + cnt.conflict) + " 条") +
     '</div>' +
     '<p class="hint" style="margin-bottom:8px">本机 ' + (state.holdings.length + state.deposits.length + state.loans.length) +
       ' 条，来源 ' + (inc.holdings.length + inc.deposits.length + inc.loans.length) + ' 条；其中 ' + cnt.same + ' 条完全相同会被跳过，' +
@@ -3129,7 +3365,7 @@ function loadDemo() {
           { id: uid(), kind: "principal", amount: 9400, date: "2026-03-01", note: "示例" },
           { id: uid(), kind: "interest", amount: 600, date: "2026-03-01", note: "示例" }
         ],
-        note: "示例", updatedAt: Date.now()
+        note: "示例", cashBooked: true, updatedAt: Date.now()
       });
       state.cash = 8000;
       commit();
@@ -3262,6 +3498,7 @@ document.addEventListener("click", function (e) {
         (isP ? "还款本金 <b>" : "已付利息 <b>") + money(rec.amount) +
         "</b>？删除后未还本金和应计利息会重新计算，无法撤销。</p>", function () {
           l0.repayments = l0.repayments.filter(x => x.id !== rec.id);
+          if (isP) cashDelta(-num(rec.amount));   /* 撤销本金还款 → 现金退回借出状态 */
           touchRec(l0);
           commit();
           toast(isP ? "已撤销这笔还款" : "已撤销这笔利息");
@@ -3305,7 +3542,11 @@ document.addEventListener("click", function (e) {
       Sheet.open("删除记录", '<p class="hint">确认删除「' + esc(label) + "」？" +
         (kind === "loan" ? "这笔借款下面的还款记录会一起删除，" : "") + "删除后不可恢复。</p>",
         function () {
-          if (kind === "loan") state.loans = state.loans.filter(x => x.id !== id);
+          if (kind === "loan") {
+            const gone = state.loans.find(x => x.id === id);
+            if (gone) cashDelta(Math.max(0, loanCalc(gone).balance));   /* 删掉借款 → 没还的本金回到现金 */
+            state.loans = state.loans.filter(x => x.id !== id);
+          }
           else if (kind === "deposit") state.deposits = state.deposits.filter(x => x.id !== id);
           else state.holdings = state.holdings.filter(x => x.id !== id);
           commit(); toast("已删除"); return true;
@@ -3328,6 +3569,10 @@ document.addEventListener("keydown", function (e) {
   if (host) toggleFold(head.dataset.fold, host.dataset.id, host);
 });
 $("#btnRefreshAll").addEventListener("click", function () { refreshAll(false); });
+const btnBatchNav = $("#btnBatchNav");
+if (btnBatchNav) btnBatchNav.addEventListener("click", function () { openBatchNav(); });
+const btnCashEdit = $("#btnCashEdit");
+if (btnCashEdit) btnCashEdit.addEventListener("click", function () { openCashForm(); });
 $("#btnExport").addEventListener("click", exportJSON);
 $("#btnCopy").addEventListener("click", copyBackup);
 $("#btnImportFile").addEventListener("click", () => $("#fileInput").click());
