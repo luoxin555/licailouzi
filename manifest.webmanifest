@@ -1,0 +1,25 @@
+{
+  "name": "理财记账 · 持仓与定存",
+  "short_name": "理财记账",
+  "description": "单文件个人理财记账：基金股票买卖盈亏、银行定期存款到期与计息、总资产汇总，数据只存本机。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#f2f3f6",
+  "theme_color": "#2b62f0",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "新增定存", "short_name": "定存", "url": "./index.html?action=dep" },
+    { "name": "新增持仓", "short_name": "持仓", "url": "./index.html?action=holding" }
+  ]
+}
