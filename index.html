@@ -309,7 +309,6 @@ img,svg,canvas,video{max-width:100%}
   padding:5px 0;border-bottom:1px dashed var(--line);font-size:12px;font-variant-numeric:tabular-nums}
 .nv-row.nv-head{color:var(--muted);font-size:11px;border-bottom-style:solid}
 .nv-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nv-row .nv-ok{color:var(--down);font-weight:600}
 .nv-row .nv-miss{color:var(--warn)}
 .nv-row .nv-bad{color:var(--up);grid-column:1/-1;white-space:normal}
 .nv-note{color:var(--muted);font-size:11.5px;margin-top:8px;line-height:1.6}
@@ -705,7 +704,7 @@ const BANKS = ["工商银行", "建设银行", "农业银行", "中国银行", "
 const LOAN_MAX_RATE = 36;
 function defaultState() {
   return {
-    v: 1, cash: 0, holdings: [], deposits: [], loans: [],
+    v: 2, cash: 0, holdings: [], deposits: [], loans: [],
     settings: { basis: 365, autoRefresh: true, refreshMinutes: 5, backup: { enabled: true, max: 10 },
       link: { name: "", hash: "", at: 0, dirty: false } },
     trace: [],
@@ -718,12 +717,12 @@ function isDateStr(v) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return false;
   return fmtDate(parseDate(t)) === t;     // 2026-13-45 这类会被 Date 归一化，对不上就判无效
 }
+const pad2 = n => (n < 10 ? "0" : "") + n;
 /* 本地时区的 ISO 时间戳：不用 toISOString()，否则导出时间在非 UTC 时区会差 8 小时 */
 function localISO(d) {
   const t = d || new Date();
-  const p = function (n) { return (n < 10 ? "0" : "") + n; };
-  return t.getFullYear() + "-" + p(t.getMonth() + 1) + "-" + p(t.getDate()) + "T" +
-    p(t.getHours()) + ":" + p(t.getMinutes()) + ":" + p(t.getSeconds()) + "." +
+  return t.getFullYear() + "-" + pad2(t.getMonth() + 1) + "-" + pad2(t.getDate()) + "T" +
+    pad2(t.getHours()) + ":" + pad2(t.getMinutes()) + ":" + pad2(t.getSeconds()) + "." +
     String(t.getMilliseconds()).padStart(3, "0");
 }
 /* 把各种来源的时间戳统一成本地「YYYY-MM-DD HH:mm」；带 Z 的旧文件也能正确换算 */
@@ -731,11 +730,10 @@ function fmtStampText(v) {
   if (!v) return "";
   const d = new Date(v);
   if (isNaN(d.getTime())) return String(v).slice(0, 16).replace("T", " ");
-  const p = function (n) { return (n < 10 ? "0" : "") + n; };
-  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " +
-    p(d.getHours()) + ":" + p(d.getMinutes());
+  return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
+    pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-18.24";
+const APP_VERSION = "2026-11-20.30";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -834,10 +832,16 @@ function normalize(raw) {
       priceDate: isDateStr(h.priceDate) ? h.priceDate : "",
       priceAt: Math.max(0, num(h.priceAt)),
       pct: h.pct == null || h.pct === "" || !isFinite(Number(h.pct)) ? null : Number(h.pct),
+      /* 昨净值（前一交易日）：日涨跌靠它算，必须跟着存，否则刷新一次页面就没了 */
+      prevPrice: Math.max(0, num(h.prevPrice)),
+      prevDate: isDateStr(h.prevDate) ? h.prevDate : "",
       failMsg: asStr(h.failMsg),
       source: ["auto", "manual", "fail"].indexOf(h.source) >= 0 ? h.source : "manual",
       mmf: h.mmf === true || h.mmf === 1 || h.mmf === "1" || h.mmf === "true",
       moneyPer10k: h.moneyPer10k == null || h.moneyPer10k === "" ? null : num(h.moneyPer10k),
+      /* 货币基金：累计已赚但还没结转进已实现盈亏的万份收益（元），以及「已经计到哪一天」 */
+      mmfAccrued: Math.max(0, num(h.mmfAccrued)),
+      mmfLastDate: isDateStr(h.mmfLastDate) ? h.mmfLastDate : "",
       note: asStr(h.note),
       updatedAt: Math.max(0, num(h.updatedAt)),
       divMode: h.divMode === "reinvest" ? "reinvest" : "cash",
@@ -958,6 +962,17 @@ function normalize(raw) {
       cashMigrated = cashOut;
     }
   }
+  /* v2：万份收益从「挂在 mmfAccrued 上等卖出再结转」改成「当日就折成份额」。
+     旧版数据里那份收益还没折进份额，这里一次性补进去，只补一次（v 已经是 2 就不再动） */
+  if (num(s.v) < 2) {
+    out.holdings.forEach(function (h) {
+      if (h.mmf && num(h.mmfAccrued) > 0) {
+        h.shares = Math.max(0, num(h.shares) + num(h.mmfAccrued));
+        h.mmfAccrued = 0;
+      }
+    });
+  }
+  out.v = 2;
   return out;
 }
 
@@ -1090,10 +1105,25 @@ function holdingStats(h) {
   const shares = num(h.shares), cost = num(h.cost);
   const price = num(h.price);
   const mv = shares * price;
+  /* 货币基金净值恒为 1：每天赚到的钱在 applyQuote 里就折成份额了（份额 × 1 就是它的钱），
+     这里不能再额外加一笔，否则同一份收益算两次 */
+  const mmfAccrued = Math.max(0, num(h.mmfAccrued));
   const pl = mv - cost;
   const cps = shares > 0 ? cost / shares : 0;
   const plPct = cost > 0 ? pl / cost * 100 : 0;
-  return { shares, cost, price, mv, pl, cps, plPct, realized: num(h.realized) };
+  /* 日涨跌 = (今净值 − 昨净值) ÷ 昨净值。昨净值由行情接口一起带回来（fund 取倒数第二行、股票取昨收），
+     接口没给就退回它自带的日增长率；两者都没有才是 null（显示「—」），绝不拿旧百分比配新价格 */
+  const prev = num(h.prevPrice);
+  let dayPct = null;
+  /* 已经清仓（0 份）就没有「日涨跌」可言：留着旧百分比等于给一条空记录报涨跌 */
+  if (shares > 0) {
+    if (prev > 0 && isFinite(price) && price > 0) dayPct = (price - prev) / prev * 100;
+    else if (h.pct != null && isFinite(Number(h.pct))) dayPct = Number(h.pct);
+  }
+  return { shares, cost, price, mv, pl, cps, plPct, mmfAccrued: mmfAccrued, realized: num(h.realized),
+    /* 没有价格（刚建仓 / 一直没取到行情）不能按 0 算：否则市值 0、盈亏 −成本，等于凭空报一个 −100% */
+    hasPrice: isFinite(price) && price > 0,
+    prevPrice: prev > 0 ? prev : null, dayPct: dayPct };
 }
 /* ============ 分红：统计与记账 ============ */
 function dividendList(h) {
@@ -1188,10 +1218,12 @@ async function fetchExPrice(kind, code, date) {
   return { price: hit.price, date: hit.date, exact: hit.date === day };
 }
 function totals() {
-  let mv = 0, cost = 0, realized = 0, principal = 0, accrued = 0, matInterest = 0;
+  let mv = 0, cost = 0, realized = 0, principal = 0, accrued = 0, matInterest = 0, plSum = 0;
   state.holdings.forEach(h => {
     const s = holdingStats(h);
     mv += s.mv; cost += s.cost; realized += s.realized;
+    /* 没价格的持仓（刚建仓/一直取不到行情）不参与盈亏，否则会凭空出现一笔 −成本 的亏损 */
+    if (s.hasPrice) plSum += s.pl;
   });
   state.deposits.forEach(d => {
     const c = depositCalc(d);
@@ -1211,7 +1243,7 @@ function totals() {
   });
   const cash = num(state.cash);
   const total = mv + principal + cash + loanBalance + loanReceived;
-  const floatPL = mv - cost;
+  const floatPL = plSum;
   /* 收益按权责发生制：已收的利息也算收益，所以这里用应计口径 */
   const profit = floatPL + realized + accrued;
   const invested = cost + principal;
@@ -1390,6 +1422,14 @@ function pruneFold() {
   if (changed) saveFold();
 }
 
+/** 卡片底部：来源标签 + 状态徽标 + 操作按钮。三个页签的渲染共用，按钮由调用方拼 */
+const BTN_EDIT_DEL = '<button class="mini" data-act="edit">编辑</button>' +
+  '<button class="mini danger" data-act="del">删除</button>';
+function itemFoot(srcHtml, pillHtml, actions) {
+  return '<div class="item-foot">' + srcHtml + (pillHtml || "") +
+    '<div class="row-actions">' + actions + '</div></div>';
+}
+
 /* ============ 渲染：持仓 ============ */
 function srcLabel(h) {
   let base;
@@ -1420,12 +1460,13 @@ function renderHoldings() {
       '<div class="item-top">' +
         '<div class="item-title"><span class="tag ' + h.kind + '">' + (h.kind === "fund" ? "基金" : "股票") + '</span>' +
           '<b>' + esc(h.name || "未命名") + '</b><span class="code">' + esc(h.code || "—") + '</span></div>' +
-        '<div class="item-value"><div class="num strong">' + money(s.mv) + '</div>' +
-          '<div class="num small ' + plClass(s.pl) + '">' + signedMoney(s.pl) + ' · ' + pct(s.plPct) + '</div></div>' +
+        '<div class="item-value"><div class="num strong">' + (s.hasPrice ? money(s.mv) : "—") + '</div>' +
+          '<div class="num small ' + (s.hasPrice ? plClass(s.pl) : "") + '">' +
+          (s.hasPrice ? signedMoney(s.pl) + ' · ' + pct(s.plPct) : "暂无行情 · 未计算盈亏") + '</div></div>' +
       '</div>' +
       '<div class="item-sum">' +
         '<span>成本价 <i>' + s.cps.toFixed(4) + '</i></span>' +
-        '<span>现价 <i>' + s.price.toFixed(4) + '</i></span>' +
+        '<span>现价 <i>' + (s.hasPrice ? s.price.toFixed(4) : "—") + '</i></span>' +
         (h.priceDate ? '<span>' + (h.kind === "stock" ? "行情日 " : "净值日 ") + '<i>' + esc(h.priceDate) + '</i></span>' : "") +
         '<span>份额 <i>' + fmtNum(s.shares, 2) + '</i></span>' +
       '</div>' +
@@ -1435,26 +1476,26 @@ function renderHoldings() {
       '<div class="kv">' +
         '<div><span>持有份额</span><b class="num">' + fmtNum(s.shares, 4) + '</b></div>' +
         '<div><span>成本价</span><b class="num">' + s.cps.toFixed(4) + '</b></div>' +
-        '<div><span>现价</span><b class="num">' + s.price.toFixed(4) + '</b></div>' +
+        '<div><span>现价</span><b class="num">' + (s.hasPrice ? s.price.toFixed(4) : "—") + '</b></div>' +
         '<div><span>持仓成本</span><b class="num">' + money(s.cost) + '</b></div>' +
+        (h.mmf ? '<div><span>万份收益折份额</span><b class="num">' + fmtNum(s.mmfAccrued, 4) +
+          '<em class="hint" style="font-style:normal"> 份 · 已并入上方份额</em></b></div>' : "") +
         '<div><span>已实现盈亏</span><b class="num ' + plClass(s.realized) + '">' + signedMoney(s.realized) + '</b></div>' +
-        '<div><span>日涨跌</span><b class="num ' + (h.pct == null ? "" : plClass(h.pct)) + '">' +
-          (h.pct == null ? "—" : (h.pct > 0 ? "+" : "") + Number(h.pct).toFixed(2) + "%") + '</b></div>' +
+        '<div><span>日涨跌</span><b class="num ' + (s.dayPct == null ? "" : plClass(s.dayPct)) + '">' +
+          (s.dayPct == null ? "—" : (s.dayPct > 0 ? "+" : "") + Number(s.dayPct).toFixed(2) + "%") + '</b></div>' +
+        '<div><span>昨净值</span><b class="num">' + (s.prevPrice > 0 ? s.prevPrice.toFixed(4) : "—") + '</b></div>' +
         '<div><span>分红方式</span><b class="num">' + (h.divMode === "reinvest" ? "红利再投资" : "现金分红") + '</b></div>' +
         '<div><span>分红</span><b class="num">' + ((h.dividends || []).length ? (h.dividends.length + " 笔 · 再投 " + fmtNum(divStats(h).newShares, 2) + " 份") : "未记录") + '</b></div>' +
         '<div><span>流水</span><b class="num">' + h.tx.length + ' 笔</b></div>' +
       '</div>' +
-      '<div class="item-foot"><span class="src ' + h.source + '">' + esc(srcLabel(h)) + '</span>' +
-        (function () { const st = staleInfo(h); return st ? '<span class="pill ' + st.tone + '">' + esc(st.text) + '</span>' : ''; })() +
-        '<div class="row-actions">' +
-          '<button class="mini" data-act="refresh">更新</button>' +
-          '<button class="mini" data-act="buy">买入</button>' +
-          '<button class="mini" data-act="sell">卖出</button>' +
-          '<button class="mini" data-act="div">分红</button>' +
-          '<button class="mini" data-act="price">改价</button>' +
-          '<button class="mini" data-act="edit">编辑</button>' +
-          '<button class="mini danger" data-act="del">删除</button>' +
-        '</div></div></div></article>';
+      itemFoot('<span class="src ' + h.source + '">' + esc(srcLabel(h)) + '</span>',
+        (function () { const st = staleInfo(h); return st ? '<span class="pill ' + st.tone + '">' + esc(st.text) + '</span>' : ''; })(),
+        '<button class="mini" data-act="refresh">更新</button>' +
+        '<button class="mini" data-act="buy">买入</button>' +
+        '<button class="mini" data-act="sell">卖出</button>' +
+        '<button class="mini" data-act="div">分红</button>' +
+        '<button class="mini" data-act="price">改价</button>' +
+        BTN_EDIT_DEL) + '</div></article>';
   }).join("");
 }
 
@@ -1515,11 +1556,8 @@ function renderDeposits() {
           (c.matured ? c.totalDays : c.remaining) + ' 天</b></div>' +
       '</div>' +
       '<div class="bar"><i style="width:' + (c.progress * 100).toFixed(1) + '%"></i></div>' +
-      '<div class="item-foot"><span class="src manual">' + (d.compound ? "年复利" : "单利") + ' · ' + c.basis + ' 天' + (c.early ? " · 已提前支取" : "") + '</span>' +
-        '<div class="row-actions">' +
-          '<button class="mini" data-act="edit">编辑</button>' +
-          '<button class="mini danger" data-act="del">删除</button>' +
-        '</div></div></div></article>';
+      itemFoot('<span class="src manual">' + (d.compound ? "年复利" : "单利") + ' · ' + c.basis + ' 天' +
+        (c.early ? " · 已提前支取" : "") + '</span>', "", BTN_EDIT_DEL) + '</div></article>';
   }).join("");
 }
 
@@ -1610,11 +1648,9 @@ function renderLoans() {
       '</div>' +
       reps +
       (l.note ? '<p class="hint" style="margin-top:8px">' + esc(l.note) + '</p>' : '') +
-      '<div class="item-foot"><span class="src manual">' + (c.repayCount ? "还款 " + c.principalCount + " 笔 · 收息 " + c.interestCount + " 笔" : "未还过款") + '</span>' +
-        '<div class="row-actions">' +
-          '<button class="mini" data-act="edit">编辑</button>' +
-          '<button class="mini danger" data-act="del">删除</button>' +
-        '</div></div></div></article>';
+      itemFoot('<span class="src manual">' + (c.repayCount
+        ? "还款 " + c.principalCount + " 笔 · 收息 " + c.interestCount + " 笔" : "未还过款") + '</span>', "", BTN_EDIT_DEL) +
+      '</div></article>';
   }).join("");
 }
 
@@ -1666,6 +1702,8 @@ function render() {
 }
 
 /* ============ 底部弹层 ============ */
+/** 弹窗里的主按钮（提交/确认）：统一一处查，避免各处理函数各写一遍选择器 */
+function sheetSubmitBtn() { return document.querySelector(".overlay button[type=submit]"); }
 const Sheet = {
   el: null,
   open(title, body, onSubmit, submitText) {
@@ -1773,7 +1811,7 @@ function openHoldingForm(id, kind) {
       state.holdings.push({
         id: uid(), kind: d.kind, code: d.code.trim(), name: d.name.trim(),
         shares, cost: shares * cps, price: d.mmf === "1" ? 1 : price, realized: 0, priceDate: "",
-        source: "manual", mmf: d.mmf === "1", moneyPer10k: null, note: d.note.trim(), tx: []
+        source: "manual", mmf: d.mmf === "1", moneyPer10k: null, mmfAccrued: 0, mmfLastDate: "", note: d.note.trim(), tx: []
       });
     }
     touchRec(h || state.holdings[state.holdings.length - 1]);
@@ -1813,11 +1851,13 @@ function openTrade(id, side) {
       const cps = h.shares > 0 ? h.cost / h.shares : 0;
       const costOut = cps * qty;
       const proceeds = qty * price - fee;
+      /* 万份收益折成的份额已经在持有份额里，按平均成本法自然结转：
+         卖出金额 − 平均成本 = 涨跌 + 这段时间累计折进来的收益，不需要再单独加一遍 */
       h.realized = num(h.realized) + (proceeds - costOut);
       h.cost = Math.max(0, h.cost - costOut);
       h.shares = Math.max(0, h.shares - qty);
       h.tx.push({ t: "sell", qty: qty, price: price, fee: fee, date: d.date || todayISO(), amount: proceeds });
-      if (h.shares < 1e-9) { h.shares = 0; h.cost = 0; }
+      if (h.shares < 1e-9) { h.shares = 0; h.cost = 0; h.mmfAccrued = 0; h.mmfLastDate = ""; }
     }
     touchRec(h);
     commit();
@@ -1905,6 +1945,7 @@ function openBatchNav() {
           if (x.mmf) { h.moneyPer10k = x.price; h.price = 1; } else { h.price = x.price; }
           h.priceDate = x.date;
           h.source = "manual";
+          h.pct = null; h.prevPrice = 0; h.prevDate = "";   // 粘贴的是单点净值，没有昨净值，日涨跌显示「—」而不是旧值
           h.priceAt = Date.now();
           h.failMsg = "";
           touchRec(h);
@@ -1951,6 +1992,7 @@ function openPrice(id) {
       h.price = p;
     }
     h.priceDate = d.priceDate || todayISO(); h.source = "manual";
+    h.pct = null; h.prevPrice = 0; h.prevDate = "";   // 昨天之前的价格算不出今天的日涨跌，清空而不是留着旧的
     touchRec(h);
     commit();
     toast(isMmf ? "万份收益已更新" : "价格已更新");
@@ -2540,7 +2582,7 @@ function autoMinutes() {
 }
 function autoGapMs() {
   const s = sessionNow();
-  const base = autoMinutes() * 60000;
+  const base = Math.max(60000, autoMinutes() * 60000);              // 最快 1 分钟，别把接口打爆
   return s.phase === "trade" ? base : Math.max(base, 15 * 60000);   // 收盘后最少 15 分钟
 }
 let autoTimer = null, nextAutoAt = 0, lastRefreshAt = 0;
@@ -2553,26 +2595,33 @@ function renderRefreshStatus() {
   if (!state.settings.autoRefresh) { tone = "off"; text = "自动刷新已关闭"; }
   else if (lockEl) { tone = "off"; text = "已锁定，暂停刷新"; }
   else if (document.hidden) { tone = "off"; text = "切到后台，已暂停"; }
-  else if (s.phase === "closed") { tone = "off"; text = s.label + " · 暂停自动请求"; }
-  else if (s.phase === "nav") { tone = "ok"; text = s.label + " · 每 " + Math.max(autoMinutes(), 15) + " 分钟"; }
-  else { tone = "ok"; text = s.label + " · 每 " + autoMinutes() + " 分钟"; }
+  else if (!needsQuoteRefresh()) { tone = "ok"; text = "已是最新净值 · 有新数据时自动拉取"; }
+  else if (s.phase === "closed") { tone = "ok"; text = s.label + " · 正在补最新净值"; }
+  else { tone = "ok"; text = s.label + " · 每 " + Math.max(1, Math.round(autoGapMs() / 60000)) + " 分钟"; }
   if (el) el.textContent = text + (lastRefreshAt ? " · 上次刷新 " + relTime(lastRefreshAt) : "");
   if (badge) {
     badge.className = "pill " + tone;
-    badge.textContent = state.settings.autoRefresh ? (s.phase === "closed" || lockEl || document.hidden ? "暂停" : "运行中") : "已关闭";
+    badge.textContent = state.settings.autoRefresh ? (lockEl || document.hidden ? "暂停" : "运行中") : "已关闭";
   }
   const en = document.querySelector("#autoEnabled");
   if (en) en.checked = !!state.settings.autoRefresh;
   const mx = document.querySelector("#autoMinutes");
   if (mx) mx.value = String(autoMinutes());
 }
+/* 还有没有「该更新但没更新」的持仓：按每只自己的预期数据日期判断。
+   以前这里用「交易时段」一刀切，导致晚上 19:00 净值公布后（此时早就收盘）永远不刷新，
+   第二天开盘前打开看到的还是前一天的净值——这才是「日涨跌 / 盈亏 不更新」的根因 */
+function needsQuoteRefresh() {
+  return state.holdings.some(function (h) {
+    return String(h.priceDate || "") < expectedDataDate(h);
+  });
+}
 async function autoRefreshTick() {
   if (lockEl) return;                       // 锁屏状态不拉取
   renderRefreshStatus();
   if (!state.settings.autoRefresh) return;
   if (document.hidden) { nextAutoAt = 0; return; }   // 后台停
-  const s = sessionNow();
-  if (s.phase === "closed") { nextAutoAt = 0; return; }  // 非交易时段不请求
+  if (!needsQuoteRefresh()) { nextAutoAt = 0; return; }  // 已经是最新净值，不再空转请求
   const now = Date.now();
   if (nextAutoAt && now < nextAutoAt) return;
   nextAutoAt = now + autoGapMs();
@@ -2607,18 +2656,34 @@ async function fetchFundQuote(code) {
   const res = await jsonp(FUND_API.nav(c), 9000, "callback");
   const rows = (res && res.Datas) || [];
   if (!rows.length) throw new Error("接口无净值");
-  const last = rows.slice().sort(function (a, b) { return a.FSRQ < b.FSRQ ? 1 : -1; })[0];
+  const sorted = rows.slice().sort(function (a, b) { return a.FSRQ < b.FSRQ ? 1 : -1; });
+  const last = sorted[0];
   const unit = parseFloat(last.DWJZ);
   if (!isFinite(unit) || unit <= 0) throw new Error("净值无效");
   const isMoney = !!(info && /货币/.test(String(info.FTYPE || "")));
+  /* 昨净值 = 上一条净值记录；货币基金的「净值」恒为 1，万份收益没有日涨跌概念，不参与 */
+  const prevRow = sorted[1];
+  const prevNav = prevRow ? parseFloat(prevRow.DWJZ) : NaN;
+  const prevOk = !isMoney && isFinite(prevNav) && prevNav > 0;
+  let pct = parseFloat(last.JZZZL);
+  if (!isFinite(pct) && prevOk) pct = (unit - prevNav) / prevNav * 100;
   return {
     isMoney: isMoney,
     name: info && info.SHORTNAME ? String(info.SHORTNAME) : "",
     ftype: info && info.FTYPE ? String(info.FTYPE) : "",
     price: isMoney ? 1 : unit,
     moneyPer10k: isMoney ? unit : null,
+    /* 货币基金只有万份收益，没有净值涨跌：把整段日序列带回去，按自然日逐天累加，
+       这样关掉几天再打开也能把漏掉的每个自然日各算一次（只算接口真的给了数的天） */
+    mmfSeries: isMoney ? sorted.map(function (x) {
+      const v = parseFloat(x.DWJZ);
+      return { date: String(x.FSRQ || ""), per10k: isFinite(v) && v >= 0 ? v : null };
+    }).filter(function (x) { return isDateStr(x.date) && x.per10k != null; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); }) : null,
     date: last.FSRQ || todayISO(),
-    pct: isFinite(parseFloat(last.JZZZL)) ? parseFloat(last.JZZZL) : null
+    prevPrice: prevOk ? prevNav : null,
+    /* 货币基金的「净值」恒为 1，日涨跌没有意义（0.00% 也是假精度），一律不显示 */
+    pct: isMoney ? null : (isFinite(pct) ? pct : null)
   };
 }
 
@@ -2647,7 +2712,9 @@ function tencentQuote(digits) {
         if (!isFinite(price) || price <= 0) { finish(new Error("暂无成交价")); return; }
         const t = String(arr[30] || "");        // 20261118092626（北京时间）
         const qd = /^\d{8}/.test(t) ? t.slice(0, 4) + "-" + t.slice(4, 6) + "-" + t.slice(6, 8) : "";
-        finish(null, { price: price, name: "", pct: parseFloat(arr[32]) || null, date: qd });
+        const prevP = parseFloat(arr[4]);
+        finish(null, { price: price, name: "", prevPrice: isFinite(prevP) && prevP > 0 ? prevP : null,
+          pct: parseFloat(arr[32]) || null, date: qd });
       } catch (e) { finish(e); }
     };
     s.onerror = function () { finish(new Error("网络不可达")); };
@@ -2670,6 +2737,8 @@ async function fetchStockQuote(code) {
       return {
         price: x.f43 / Math.pow(10, dec),
         name: x.f58 ? String(x.f58) : "",
+        /* f60 = 昨收：日涨跌优先用它算，f170 只在拿不到昨收时兜底 */
+        prevPrice: isFinite(x.f60) && Number(x.f60) > 0 ? Number(x.f60) / Math.pow(10, dec) : null,
         pct: isFinite(x.f170) ? Number(x.f170) / 100 : null,
         date: ts ? bjDayOf(ts) : "",
         src: "eastmoney"
@@ -2699,11 +2768,13 @@ async function quoteFor(h) {
       priceDate: q.date,
       moneyPer10k: isMoney ? (q.moneyPer10k == null ? (q.price > 0 ? q.price : h.moneyPer10k) : q.moneyPer10k) : null,
       name: q.name || "",
-      pct: q.pct
+      prevPrice: isMoney ? null : q.prevPrice,
+      pct: q.pct,
+      mmfSeries: isMoney ? q.mmfSeries : null
     };
   }
   const q = await fetchStockQuote(h.code);
-  return { price: q.price, priceDate: q.date || todayISO(), name: q.name || "", pct: q.pct };
+  return { price: q.price, priceDate: q.date || todayISO(), name: q.name || "", prevPrice: q.prevPrice, pct: q.pct };
 }
 /* 脏数据（0、非数值、负数）一律不写，保留上一次有效值 */
 function applyQuote(h, p) {
@@ -2713,7 +2784,39 @@ function applyQuote(h, p) {
   if (p.mmf !== undefined) h.mmf = !!p.mmf;
   if (p.moneyPer10k !== undefined) h.moneyPer10k = p.moneyPer10k;
   if (!h.name && p.name) h.name = p.name;
+  /* 昨净值必须和这次报价同源：拿不到就清空，别留着上一次的旧值去算日涨跌 */
+  if (isFinite(p.prevPrice) && p.prevPrice > 0) {
+    h.prevPrice = Number(p.prevPrice);
+    h.prevDate = p.priceDate || "";
+  } else {
+    h.prevPrice = 0;
+    h.prevDate = "";
+  }
   h.pct = (p.pct == null || !isFinite(p.pct)) ? null : Number(p.pct);
+  /* 货币基金：万份收益按自然日累加。只累加「晚于上次已计日期、且不晚于今天」的那几天，
+     同一天刷新一百次也只加一次；接口没给某天的数就不加，绝不按月数或均值去猜 */
+  if (Array.isArray(p.mmfSeries) && p.mmfSeries.length) {
+    const today = todayISO();
+    const last = isDateStr(h.mmfLastDate) ? h.mmfLastDate : "";
+    const fresh = p.mmfSeries.filter(function (x) { return x.date > last && x.date <= today; });
+    if (!last) {
+      /* 第一次拿到这只货基：只记基线，不把建仓之前的历史收益算进来 */
+      h.mmfLastDate = p.mmfSeries[p.mmfSeries.length - 1].date;
+    } else if (fresh.length) {
+      /* 收益按净值 1.0000 折成份额：份额自己长大，第二天的万份收益就按新份额算 —— 这就是复利。
+         逐日滚（不是拿第一天的份额乘天数），漏几天就按接口给的每一天各算一次。
+         成本不动：这几分钱没从兜里掏出来，等卖出时才由「成交金额 − 平均成本」自然变成已实现 */
+      let sh = Math.max(0, num(h.shares)), acc = 0;
+      fresh.forEach(function (x) {
+        const add = sh / 10000 * x.per10k;
+        sh += add;
+        acc += add;
+      });
+      h.shares = sh;
+      h.mmfAccrued = Math.max(0, num(h.mmfAccrued) + acc);   // 仅展示：累计折进来多少份
+      h.mmfLastDate = fresh[fresh.length - 1].date;
+    }
+  }
   h.source = "auto";
   h.failMsg = "";
   h.priceAt = Date.now();
@@ -2864,19 +2967,25 @@ function payloadJSON() {
   }
   return JSON.stringify({ app: "licai-jizhang", version: 1, exportedAt: localISO(), data: data }, null, 2);
 }
-function exportJSON() {
+/** 把一段文本存成文件；不支持 Blob/URL 的环境返回 false，由调用方给退路 */
+function downloadText(name, text) {
   try {
-    const blob = new Blob([payloadJSON()], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = "理财记账-" + todayISO() + ".json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    toast("备份文件已生成");
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+    return true;
   } catch (e) {
-    toast("导出失败，请用「复制备份文本」");
+    return false;
   }
+}
+function exportJSON() {
+  if (!downloadText("理财记账-" + todayISO() + ".json", payloadJSON())) toast("导出失败，请用「复制备份文本」");
+  else toast("备份文件已生成");
 }
 function copyBackup() {
   const text = payloadJSON();
@@ -3002,12 +3111,17 @@ function applySyncPlan(plan, choices, keyStart) {
   return { added: added, updated: updated, kept: kept };
 }
 /* 合并前的强制备份（不受「内容相同就不存」的去重影响） */
+/** 备份裁剪：先按条数，再按总字节；只留最新的一份，绝不把最后一份也裁掉 */
+function trimBackups(b) {
+  while (b.items.length > bkMax()) b.items.shift();
+  while (b.items.length > 1 && JSON.stringify(b).length > BK_MAX_BYTES) b.items.shift();
+}
 function forceSnapshot(reason) {
   let json;
   try { json = JSON.stringify(snapshotData()); } catch (e) { return false; }
   const b = loadBackups(), now = Date.now();
   b.items.push({ id: uid(), at: now, firstAt: now, reason: reason || "pre-sync", json: json });
-  while (b.items.length > bkMax()) b.items.shift();
+  trimBackups(b);
   saveBackups(b);
   renderBackups();
   return true;
@@ -3236,15 +3350,8 @@ function writeBackLink() {
   lk.hash = hashText(payload);
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
   broadcastChange();
-  try {
-    const blob = new Blob([payload], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = lk.name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-    toast("已生成 " + lk.name + "，在「文件」App 里覆盖原文件即可");
-  } catch (e) { toast("写回失败，请改用「导出 JSON」"); }
+  if (downloadText(lk.name, payload)) toast("已生成 " + lk.name + "，在「文件」App 里覆盖原文件即可");
+  else toast("写回失败，请改用「导出 JSON」");
   renderSyncCard();
   return true;
 }
@@ -3344,7 +3451,8 @@ function loadDemo() {
         state.holdings.push({
           id: uid(), kind: "fund", code: x.code, name: x.name, shares: x.shares,
           cost: x.shares * x.cps, price: x.price, realized: 0, priceDate: "", source: "manual",
-          mmf: !!x.mmf, moneyPer10k: x.moneyPer10k == null ? null : x.moneyPer10k, note: "示例",
+          mmf: !!x.mmf, moneyPer10k: x.moneyPer10k == null ? null : x.moneyPer10k,
+          mmfAccrued: 0, mmfLastDate: "", note: "示例",
           divMode: "cash", dividends: [], tx: [], updatedAt: Date.now()
         });
       });
@@ -3642,7 +3750,7 @@ $("#bkMax").addEventListener("change", function (e) {
   state.settings.backup.max = [5, 10, 20, 50].indexOf(v) >= 0 ? v : 10;
   save();
   const b = loadBackups();
-  while (b.items.length > bkMax()) b.items.shift();
+  trimBackups(b);
   saveBackups(b);
   renderBackups();
   toast("最多保留 " + bkMax() + " 份");
@@ -3931,7 +4039,7 @@ function openSetPassword(firstRun) {
     if (p1 !== p2) { toast("两次输入的密码不一致"); return false; }
     const salt = randomSalt();
     const iter = hasSubtle() ? 150000 : 20000;
-    const btn = document.querySelector(".overlay button[type=submit]");
+    const btn = sheetSubmitBtn();
     if (btn) { btn.disabled = true; btn.textContent = "正在生成…"; }
     deriveHash(p1, salt, iter).then(function (hex) {
       state.security = { enabled: true, asked: true, salt: salt, hash: hex, iter: iter, fails: 0, lockUntil: 0, idleMs: sec().idleMs };
@@ -3956,7 +4064,7 @@ function openChangePassword() {
     if (!PWD_RE.test(p1)) { toast("新密码需 4–32 位，只能包含数字和字母"); return false; }
     if (p1 !== p2) { toast("两次输入的新密码不一致"); return false; }
     if (p1 === oldP) { toast("新密码不能与当前密码相同"); return false; }
-    const btn = document.querySelector(".overlay button[type=submit]");
+    const btn = sheetSubmitBtn();
     const restore = function () { if (btn) { btn.disabled = false; btn.textContent = "确认修改"; } };
     if (btn) { btn.disabled = true; btn.textContent = "正在校验…"; }
     deriveHash(oldP, sec().salt, sec().iter).then(function (hex) {
@@ -3980,7 +4088,7 @@ function openDisableLock() {
   Sheet.open("关闭密码锁", body, function (d) {
     const oldP = String(d.old || "");
     if (!oldP) { toast("请输入当前密码"); return false; }
-    const btn = document.querySelector(".overlay button[type=submit]");
+    const btn = sheetSubmitBtn();
     const restore = function () { if (btn) { btn.disabled = false; btn.textContent = "确认关闭"; } };
     if (btn) { btn.disabled = true; btn.textContent = "正在校验…"; }
     deriveHash(oldP, sec().salt, sec().iter).then(function (hex) {
@@ -4092,8 +4200,7 @@ function maybeSnapshot(reason) {
     return;
   }
   b.items.push({ id: uid(), at: now, firstAt: now, reason: reason || "change", json: json });
-  while (b.items.length > bkMax()) b.items.shift();
-  while (b.items.length > 1 && JSON.stringify(b).length > BK_MAX_BYTES) b.items.shift();
+  trimBackups(b);
   saveBackups(b);
   renderBackups();
 }
@@ -4102,13 +4209,11 @@ function scheduleSnapshot() {
 }
 function fmtStamp(ts) {
   const d = new Date(ts);
-  const p = function (n) { return (n < 10 ? "0" : "") + n; };
-  return (d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  return (d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
 function fmtStampFile(ts) {
   const d = new Date(ts);
-  const p = function (n) { return (n < 10 ? "0" : "") + n; };
-  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+  return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + "-" + pad2(d.getHours()) + pad2(d.getMinutes());
 }
 function fmtBytes(n) {
   if (n >= 1048576) return (n / 1048576).toFixed(2) + " MB";
@@ -4164,7 +4269,9 @@ function restoreBackup(id) {
     ((d.loans || []).length ? (d.loans || []).length + " 笔借款、" : "") + "现金 " + money(d.cash || 0) + "。<br><br>" +
     "恢复前会先把当前数据存成一份备份，手滑了还能再退回来。</p>",
     function () {
-      maybeSnapshot("restore");
+      /* 恢复是不可逆操作，弹窗里也写了「恢复前会先把当前数据存成一份备份」：
+         这里必须无条件存，不能因为自动备份开关关着就少一层安全网 */
+      forceSnapshot("restore");
       const keepSec = state.security;
       const keepLink = state.settings.link;
       state = normalize(d);
@@ -4187,14 +4294,8 @@ function exportBackup(id) {
       backupAt: localISO(new Date(it.at)),
       data: d
     }, null, 2);
-    const blob = new Blob([payload], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "理财记账-备份-" + fmtStampFile(it.at) + ".json";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-    toast("备份已导出");
+    if (downloadText("理财记账-备份-" + fmtStampFile(it.at) + ".json", payload)) toast("备份已导出");
+    else toast("导出失败，请用「复制备份文本」");
   } catch (e) {
     toast("导出失败，请用「复制备份文本」");
   }
