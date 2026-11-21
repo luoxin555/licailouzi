@@ -718,13 +718,36 @@ img,svg,canvas,video{max-width:100%}
 
     <!-- 借款（借出去的钱） -->
     <section class="view" id="view-loans" hidden>
-      <div class="card">
+      <div class="seg seg-3" id="loanSeg" role="tablist">
+        <label><input type="radio" name="loantab" value="loan" checked><span>借出款项</span></label>
+        <label><input type="radio" name="loantab" value="borrow"><span>借入款项</span></label>
+        <label><input type="radio" name="loantab" value="collect"><span>项目款项</span></label>
+      </div>
+      <div class="card" id="loanPanel-loan">
         <div class="card-head">
           <h2>借出款项 <span class="build" id="loanBuild"></span></h2>
           <button type="button" class="btn small" data-add="loan">＋ 新增</button>
         </div>
         <div class="stats" id="loanStats"></div>
         <div id="loanList" class="list"></div>
+      </div>
+      <div class="card" id="loanPanel-borrow" hidden>
+        <div class="card-head">
+          <h2>借入款项 <span class="build" id="borrowBuild"></span></h2>
+          <button type="button" class="btn small" data-add="borrow">＋ 新增</button>
+        </div>
+        <div class="stats" id="borrowStats"></div>
+        <div id="borrowList" class="list"></div>
+        <p class="hint" style="padding:2px 4px 8px">借进来的钱只做记录：到账时现金会增加，但借入本金是<b>负债</b>，不重复计入总资产。还款从现金里扣，付出去的利息单独展示。</p>
+      </div>
+      <div class="card" id="loanPanel-collect" hidden>
+        <div class="card-head">
+          <h2>项目款项 <span class="build" id="collectBuild"></span></h2>
+          <button type="button" class="btn small" data-add="collect">＋ 新增</button>
+        </div>
+        <div class="stats" id="collectStats"></div>
+        <div id="collectList" class="list"></div>
+        <p class="hint" style="padding:2px 4px 8px">按项目记「应收多少、实收多少」：可以分多次入账（二次入账），入账金额会进你选的银行账户。</p>
       </div>
       <p class="hint" style="padding:0 4px 8px">这里记的是<b>借出去的钱</b>（别人欠你）。利息按单利、未还本金分段算到今天：每还一笔，从还款日起按剩下的本金计息。借出去的钱从「存款 → 现金」里扣，收回本金会加回现金；利息单独计入总资产的「利息」一项。到期未还会在「总览 → 到期提醒」里标红。</p>
     </section>
@@ -825,6 +848,11 @@ img,svg,canvas,video{max-width:100%}
         <button type="button" class="btn" id="btnSnapshotNow" style="margin-top:9px">立即备份一次</button>
         <p class="hint" id="bkSize" style="margin-top:9px"></p>
         <div id="bkList"></div>
+        <div class="card-head" style="margin-top:16px"><h2>每日自动保存</h2><span class="pill" id="asBadge">19:00–23:59</span></div>
+        <p class="hint" style="margin-top:6px">晚上 19:00 到 23:59 之间第一次打开，自动把账本导出成 JSON 存一份；<b>同一天只存一次</b>，并记下上次保存时间。授权过目录的浏览器会直接写进上次选的文件，iPhone 上会弹分享面板选「存储到文件」。</p>
+        <p class="hint" id="autoSaveInfo">还没自动保存过</p>
+        <div class="row-actions" style="margin-top:8px"><button type="button" class="btn small" id="btnPickAutoSave">选择自动保存文件</button>
+        <button type="button" class="btn small" id="btnAutoSaveNow">立即保存一次</button></div>
         <p class="hint" style="margin-top:10px">备份存在本机浏览器里，和账目一样不加密、不上传；换手机或清浏览器数据会一起丢失，重要节点建议「导出 JSON」存到文件 App 或 iCloud。</p>
       </div>
 
@@ -1019,12 +1047,73 @@ const BANKS = ["工商银行", "建设银行", "农业银行", "中国银行", "
 
 /* 借款：年化利率上限（民间借贷司法保护上限按 4 倍 LPR 算约 14%~15%，这里留到 36% 只拦明显填错的） */
 const LOAN_MAX_RATE = 36;
+/* 借入款项：结构和借出完全一样（同一套利息算法），只是方向相反 */
+function normDebts(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : []).map(function (raw) {
+    const l = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+    let id = asStr(l.id).trim().replace(/[^A-Za-z0-9_-]/g, "");
+    if (!id || seen.has(id)) id = uid();
+    seen.add(id);
+    return {
+      id: id, hidden: !!l.hidden,
+      name: asStr(l.name || l.lender || l.borrower),
+      amount: Math.max(0, num(l.amount)),
+      rate: Math.max(0, num(l.rate)),
+      rateUnit: l.rateUnit === "month" ? "month" : "year",
+      startDate: isDateStr(l.startDate) ? l.startDate : todayISO(),
+      termValue: Math.max(1, num(l.termValue) || 12),
+      termUnit: ["day", "month", "year"].indexOf(l.termUnit) >= 0 ? l.termUnit : "month",
+      note: asStr(l.note), cashBooked: l.cashBooked !== false, cashAccount: asStr(l.cashAccount),
+      phone: asStr(l.phone), overdueRate: Math.max(0, num(l.overdueRate)),
+      photos: (Array.isArray(l.photos) ? l.photos : []).filter(p => p && p.data).slice(0, 12)
+        .map(function (p) { return { id: asStr(p.id) || uid(), data: asStr(p.data), name: asStr(p.name), at: num(p.at) }; }),
+      repayments: (Array.isArray(l.repayments) ? l.repayments : [])
+        .filter(function (r) { return r && isDateStr(r.date) && (r.kind === "interest" ? num(r.amount) >= 0 : num(r.amount) > 0); })
+        .map(function (r) {
+          return { id: asStr(r.id) || uid(), kind: r.kind === "interest" ? "interest" : "principal",
+            amount: Math.max(0, num(r.amount)), date: r.date, note: asStr(r.note) };
+        }),
+      updatedAt: Math.max(0, num(l.updatedAt))
+    };
+  });
+}
+/* 项目款项：一个项目 = 应收总额 + 若干笔入账（首笔 + 二次入账） */
+function normCollects(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : []).map(function (raw) {
+    const c = (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {};
+    let id = asStr(c.id).trim().replace(/[^A-Za-z0-9_-]/g, "");
+    if (!id || seen.has(id)) id = uid();
+    seen.add(id);
+    const eSeen = new Set();
+    return {
+      id: id, hidden: !!c.hidden,
+      project: asStr(c.project), amount: Math.max(0, num(c.amount)),
+      date: isDateStr(c.date) ? c.date : todayISO(),
+      account: asStr(c.account), note: asStr(c.note), actual: Math.max(0, num(c.actual)),
+      contact: asStr(c.contact), phone: asStr(c.phone),
+      photos: (Array.isArray(c.photos) ? c.photos : []).filter(p => p && p.data).slice(0, 12)
+        .map(function (p) { return { id: asStr(p.id) || uid(), data: asStr(p.data), name: asStr(p.name), at: num(p.at) }; }),
+      entries: (Array.isArray(c.entries) ? c.entries : [])
+        .filter(function (e) { return e && isDateStr(e.date) && num(e.amount) > 0; })
+        .map(function (e) {
+          let eid = asStr(e.id).trim().replace(/[^A-Za-z0-9_-]/g, "");
+          if (!eid || eSeen.has(eid)) eid = uid();
+          eSeen.add(eid);
+          return { id: eid, amount: Math.max(0, num(e.amount)), date: e.date, account: asStr(e.account), note: asStr(e.note) };
+        }),
+      updatedAt: Math.max(0, num(c.updatedAt))
+    };
+  });
+}
 function defaultState() {
   return {
     v: 5, cash: 0, cashParts: { bank: 0, cash: 0, wechat: 0, alipay: 0 },
     bankCards: [], fx: { at: 0, base: "CNY", rates: {} },
-    holdings: [], deposits: [], loans: [], investments: [], cashLog: [],
+    holdings: [], deposits: [], loans: [], borrowings: [], collections: [], investments: [], cashLog: [],
     settings: { basis: 365, autoRefresh: true, refreshMinutes: 5, backup: { enabled: true, max: 10 },
+      autoSaveDaily: true, autoSaveAt: 0, autoSavePath: "",
       link: { name: "", hash: "", at: 0, dirty: false } },
     trace: [],
     security: { enabled: false, asked: false, salt: "", hash: "", iter: 150000, fails: 0, lockUntil: 0, idleMs: 30000 }
@@ -1052,7 +1141,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.50";
+const APP_VERSION = "2026-11-20.55";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -1322,6 +1411,8 @@ function normalize(raw) {
     };
   });
   /* 借出款：每条下面挂 repayments[]（一笔借款可以分多次还） */
+  out.borrowings = normDebts(s.borrowings);
+  out.collections = normCollects(s.collections);
   /* 旧版本的借款借出去时没扣现金：标记一下，等 out.loans 建好后一次性补扣 */
   const unbooked = new Set();
   (Array.isArray(s.loans) ? s.loans : []).forEach(function (rl, i) {
@@ -1378,6 +1469,11 @@ function normalize(raw) {
       termValue: Math.max(1, Math.round(num(l.termValue) || 12)),
       termUnit: ["month", "year", "day"].indexOf(l.termUnit) >= 0 ? l.termUnit : "month",
       rate: Math.max(0, Math.min(LOAN_MAX_RATE, num(l.rate))),
+      rateUnit: l.rateUnit === "month" ? "month" : "year",
+      phone: asStr(l.phone),
+      overdueRate: Math.max(0, Math.min(LOAN_MAX_RATE, num(l.overdueRate))),
+      photos: (Array.isArray(l.photos) ? l.photos : []).filter(function (x) { return x && x.data; }).slice(0, 12)
+        .map(function (x) { return { id: asStr(x.id) || uid(), data: asStr(x.data), name: asStr(x.name), at: num(x.at) }; }),
       repayments: reps,
       note: asStr(l.note),
       updatedAt: Math.max(0, num(l.updatedAt)),
@@ -1595,12 +1691,19 @@ function depositCalc(dep, todayStr) {
   };
 }
 /* 借出款计算：未还本金 + 按「未还本金分段」算到今天的单利利息 */
+/* 利率单位：只存用户填的那个数 + 单位，年化在算的时候乘 12，展示时写清是年还是月 */
+function annualRateOf(x) { return Math.max(0, num(x && x.rate)) * ((x && x.rateUnit) === "month" ? 12 : 1); }
+function rateText(x) {
+  const unit = (x && x.rateUnit) === "month" ? "月利率" : "年利率";
+  const a = num(x && x.rate).toFixed(2) + "%";
+  return unit + " " + a + ((x && x.rateUnit) === "month" ? "（年化 " + annualRateOf(x).toFixed(2) + "%）" : "");
+}
 function loanCalc(l, todayStr) {
   const basis = state.settings.basis === 360 ? 360 : 365;
   const today = todayStr || todayISO();
   const maturity = addTerm(l.startDate, l.termValue, l.termUnit);
   const totalDays = Math.max(0, daysBetween(l.startDate, maturity));
-  const r = Math.max(0, num(l.rate)) / 100;
+  const r = annualRateOf(l) / 100;
   const P = Math.max(0, num(l.amount));
   /* 一条记录一种钱：kind=principal 只冲本金，kind=interest 只累计利息，两条互不影响 */
   const isP = function (x) { return x.kind !== "interest"; };
@@ -1627,12 +1730,16 @@ function loanCalc(l, todayStr) {
     if (isP(x)) bal = Math.max(0, bal - x.amount);
     from = to;
   });
-  const interestDue = Math.max(0, interest - interestPaid);   // 应计但还没收到的利息
+  /* 逾期利息（罚息）：只对「已过到期日且本金未还清」的这段天数计，利率单独填 */
+  const odRate = Math.max(0, num(l.overdueRate)) / 100;
+  const odDays = (today > maturity && balance > 0.004) ? Math.max(0, daysBetween(maturity, today)) : 0;
+  const penalty = (odRate > 0 && odDays > 0) ? balance * odRate * odDays / basis : 0;
+  const interestDue = Math.max(0, interest - interestPaid + penalty);   // 应计但还没收到的利息（含罚息）
   const overdueDays = (today > maturity && balance > 0.004) ? Math.max(0, daysBetween(maturity, today)) : 0;
   return {
     maturity, totalDays, repaid, repaidPrincipal, interestPaid, receivedCash, balance, interest, interestDue, basis,
     total: balance + interestDue,
-    overpaid: Math.max(0, repaidPrincipal - P),
+    overpaid: Math.max(0, repaidPrincipal - P), penalty: penalty, overdueRate: num(l.overdueRate),
     overdueDays, matured: today >= maturity,
     progress: totalDays > 0 ? Math.min(1, Math.max(0, daysBetween(l.startDate, today) / totalDays)) : (balance > 0 ? 1 : 0),
     repayCount: reps.length,
@@ -1699,6 +1806,12 @@ function dividendTotals() {
     const s = divStats(h);
     out.count += s.count; out.cash += s.cash; out.reinvest += s.reinvest;
     out.total += s.total; out.newShares += s.newShares; out.gain += s.gain; out.recent += s.recent;
+  });
+  /* 对外投资的分红只做记录、不进总资产，但「累计分红」这一格要算上它，否则记了分红还显示 0 */
+  (Array.isArray(state.investments) ? state.investments : []).forEach(function (it) {
+    if (!it || it.hidden) return;
+    const v = typeof investDivCNY === "function" ? investDivCNY(it) : 0;
+    if (v > 0) { out.total += v; out.count += (it.dividends || []).length; }
   });
   return out;
 }
@@ -1883,15 +1996,15 @@ function renderOverview() {
 
   /* 第 5 项 = 点这个格子去哪个页签；没写就不给点（将来加了不对应任何页签的指标，不会被误点） */
   const stats = [
-    ["持仓市值", money(t.mv), "", "", "holdings"],
-    ["持仓浮动盈亏", signedMoney(t.floatPL), plClass(t.floatPL), "", "holdings"],
-    ["已实现盈亏", signedMoney(t.realized), plClass(t.realized), "", "holdings"],
-    ["定存本金", money(t.principal), "", "", "deposits"],
-    ["定存应计利息", money(t.accrued), "up", "", "deposits"],
+    ["持仓市值", money(t.mv), "", "", null, ' data-ovstat="mv"'],
+    ["持仓浮动盈亏", signedMoney(t.floatPL), plClass(t.floatPL), "", null, ' data-ovstat="floatpl"'],
+    ["已实现盈亏", signedMoney(t.realized), plClass(t.realized), "", null, ' data-ovstat="realized"'],
+    ["定存本金", money(t.principal), "", "", null, ' data-ovstat="principal"'],
+    ["定存应计利息", money(t.accrued), "up", "", null, ' data-ovstat="accrued"'],
     /* 借款里「已付利息」记录的合计：和资产分布里的「利息」是同一个数，同源同口径，不另存一份 */
-    ["已付利息", money(t.loanReceived), t.loanReceived > 0 ? "down" : "", "借款里记的已付利息合计，已计入总资产的「利息」；未收利息不算", "loans"],
-    ["现金 / 备用金", money(t.cash), "", "", "deposits"],
-    ["累计分红", money(dv.total), dv.total > 0 ? "up" : "", "", "holdings"]
+    ["已付利息", money(t.loanReceived), t.loanReceived > 0 ? "down" : "", "借款里记的已付利息合计，已计入总资产的「利息」；未收利息不算", null, ' data-ovstat="loanReceived"'],
+    ["现金 / 备用金", money(t.cash), "", "", null, ' data-ovstat="cash"'],
+    ["累计分红", money(dv.total), dv.total > 0 ? "up" : "", "", null, ' data-ovstat="dividend"']
   ];
   paintStats("#ovStats", stats);
   const ovEmpty = $("#ovEmpty");
@@ -2675,13 +2788,402 @@ function renderLoans() {
         '<div title="只是应收，不计入总资产"><span>未收利息</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
         '<div><span>本息合计</span><b class="num">' + money(c.total) + '</b></div>' +
         '<div><span>到期日</span><b class="num">' + esc(c.maturity) + '</b></div>' +
+        (num(l.overdueRate) > 0 ? '<div><span>逾期利率</span><b class="num">' + num(l.overdueRate).toFixed(2) + '%／年 · 罚息 ' + money(c.penalty) + '</b></div>' : '') +
+        (l.phone ? '<div><span>联系电话</span><b class="num">' + esc(l.phone) + '</b></div>' : '') +
       '</div>' +
       reps +
-      (l.note ? '<p class="hint" style="margin-top:8px">' + esc(l.note) + '</p>' : '') +
+      '<div class="photo-cell" style="margin-top:10px"><button type="button" class="btn small" data-photo="open" data-id="' + esc(l.id) + '" data-kind="loan">照片 ' +
+        ((l.photos || []).length ? "（" + l.photos.length + " 张）" : "· 上传 / 下载") + '</button></div>' +
+      (l.note ? '<p class="hint note" data-note="' + esc(l.id) + '" data-notekind="loan" role="button" tabindex="0">' + esc(l.note) + '</p>' : '') +
       itemFoot('<span class="src manual">' + (c.repayCount
         ? "还款 " + c.principalCount + " 笔 · 收息 " + c.interestCount + " 笔" : "未还过款") + '</span>', "", BTN_EDIT_DEL) +
       '</div></article>';
   }).join("");
+}
+
+/* ============ 借款页：借出 / 借入 / 项目款项（三个平级窗口） ============ */
+function loanTabNow() {
+  const el = document.querySelector('input[name="loantab"]:checked');
+  return el ? el.value : "loan";
+}
+function setLoanTab(v) {
+  const t = ["loan", "borrow", "collect"].indexOf(v) >= 0 ? v : "loan";
+  ["loan", "borrow", "collect"].forEach(function (k) {
+    const p = $("#loanPanel-" + k);
+    if (p) p.hidden = k !== t;
+    const r = document.querySelector('input[name="loantab"][value="' + k + '"]');
+    if (r) r.checked = k === t;
+  });
+  if (t === "borrow") renderBorrowings();
+  else if (t === "collect") renderCollections();
+}
+/* 借款卡片（借出、借入共用一套渲染，只换文案方向） */
+function debtCardHTML(l, c, open, kind) {
+  const today = todayISO();
+  const settled = c.balance <= 0.004;
+  const tag = settled ? "已结清" : (c.overdueDays > 0 ? "逾期 " + c.overdueDays + " 天" : "剩余 " + Math.max(0, daysBetween(today, c.maturity)) + " 天");
+  const tone = settled ? "down" : (c.overdueDays > 0 ? "warn" : "up");
+  const out = kind === "borrow";
+  const who = l.name || (out ? "未填出借人" : "未填借款人");
+  const rowOf = function (r) {
+    return '<div class="rep-row"><span class="rep-d">' + esc(r.date) + '</span>' +
+      '<b class="num">' + money(r.amount) + '</b>' +
+      '<em>' + esc(r.note || (r.kind === "principal" ? "本金" : "利息")) + '</em>' +
+      '<button type="button" class="mini" data-repedit="' + esc(r.id) + '" data-id="' + esc(l.id) + '" data-kind="' + kind + '">改</button>' +
+      '<button type="button" class="mini danger" data-repdel="' + esc(r.id) + '" data-id="' + esc(l.id) + '" data-kind="' + kind + '">撤销</button></div>';
+  };
+  const pRows = c.reps.filter(x => x.kind === "principal").map(rowOf).join("");
+  const iRows = c.reps.filter(x => x.kind === "interest").map(rowOf).join("");
+  const photoN = (l.photos || []).length;
+  return '<article class="item' + (open ? " is-open" : "") + '" data-id="' + esc(l.id) + '">' +
+    '<div class="item-head" data-fold="' + (out ? "borrow" : "loan") + '" role="button" tabindex="0" aria-expanded="' + (open ? "true" : "false") + '">' +
+    '<div class="item-top">' +
+      '<div class="item-title"><span class="tag ' + (out ? "inv" : "loan") + '">' + (out ? "借入" : "借出") + '</span><b>' + esc(who) + '</b>' +
+        '<span class="code">' + money(l.amount, 0) + '</span></div>' +
+      '<div class="item-value"><div class="num strong">' + money(c.balance, 0) + '</div>' +
+        '<div class="num small ' + tone + '">' + tag + '</div></div>' +
+    '</div>' +
+    '<div class="item-sum">' +
+      '<span>' + (out ? "未还本金" : "未还本金") + ' <i>' + money(c.balance, 0) + '</i></span>' +
+      '<span>' + rateText(l) + '</span>' +
+      '<span>到期 <i>' + esc(c.maturity) + '</i></span>' +
+      (photoN ? '<span>照片 <i>' + photoN + '</i></span>' : '') +
+      (l.phone ? '<span>电话 <i>' + esc(l.phone) + '</i></span>' : '') +
+    '</div><span class="chev" aria-hidden="true"></span></div>' +
+    '<div class="fold">' +
+    '<div class="kv">' +
+      '<div><span>' + (out ? "借入金额" : "借款金额") + '</span><b class="num">' + money(l.amount) + '</b></div>' +
+      '<div><span>起算日</span><b class="num">' + esc(l.startDate) + '</b></div>' +
+      '<div><span>期限</span><b class="num">' + termLabel(l.termValue, l.termUnit) + '</b></div>' +
+      '<div><span>利率</span><b class="num">' + rateText(l) + '</b></div>' +
+      '<div><span>已还本金</span><b class="num down">' + money(c.repaidPrincipal) + '</b></div>' +
+      '<div><span>' + (out ? "已付利息" : "已付利息") + '</span><b class="num down">' + money(c.interestPaid) + '</b></div>' +
+      '<div><span>未还本金</span><b class="num">' + money(c.balance) + '</b></div>' +
+      '<div><span>' + (out ? "未付利息" : "未收利息") + '</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
+      '<div><span>到期日</span><b class="num">' + esc(c.maturity) + '</b></div>' +
+    '</div>' +
+    '<div class="rep-box"><div class="rep-head"><span>还款（本金）· ' + c.principalCount + ' 笔</span>' +
+      '<button type="button" class="mini" data-act="addrep" data-id="' + esc(l.id) + '" data-kind="' + kind + '">＋ 记一笔</button></div>' +
+      (pRows ? '<div class="rep-list">' + pRows + '</div>' : '<p class="hint">还没有还款记录</p>') + '</div>' +
+    '<div class="rep-box"><div class="rep-head"><span>已付利息 · ' + c.interestCount + ' 笔</span>' +
+      '<button type="button" class="mini" data-act="addint" data-id="' + esc(l.id) + '" data-kind="' + kind + '">＋ 记一笔</button></div>' +
+      (iRows ? '<div class="rep-list">' + iRows + '</div>' : '<p class="hint">还没有付息记录</p>') + '</div>' +
+    '<div class="photo-cell" style="margin-top:10px"><button type="button" class="btn small" data-photo="open" data-id="' + esc(l.id) + '" data-kind="' + kind + '">照片 ' +
+      (photoN ? "（" + photoN + " 张）" : "· 上传 / 下载") + '</button></div>' +
+    (l.note ? '<p class="hint note" data-note="' + esc(l.id) + '" data-notekind="' + kind + '" role="button" tabindex="0">' + esc(l.note) + '</p>' : '') +
+    '<div class="row-actions"><button type="button" class="mini" data-edit="' + esc(l.id) + '" data-kind="' + kind + '">编辑</button>' +
+      '<button type="button" class="mini danger" data-del="' + esc(l.id) + '" data-kind="' + kind + '">删除</button></div>' +
+    '</div></article>';
+}
+function renderBorrowings() {
+  const box = $("#borrowList");
+  const bb = $("#borrowBuild");
+  if (bb) bb.textContent = "v" + APP_VERSION;
+  if (!box) return;
+  const rows = live(state.borrowings).map(function (l) { return { l: l, c: loanCalc(l) }; })
+    .sort(function (a, b) { return (a.c.balance <= 0.004 ? 1 : 0) - (b.c.balance <= 0.004 ? 1 : 0); });
+  const P = rows.reduce((a, x) => a + num(x.l.amount), 0);
+  const bal = rows.reduce((a, x) => a + x.c.balance, 0);
+  const paid = rows.reduce((a, x) => a + x.c.interestPaid, 0);
+  const due = rows.reduce((a, x) => a + x.c.interestDue, 0);
+  const done = rows.filter(x => x.c.balance <= 0.004 && x.c.interestDue <= 0.004).length;
+  paintStats("#borrowStats", [
+    ["借入本金", money(P), "", "每一笔借进来多少", null, ' data-bsum="principal"'],
+    ["未还本金", money(bal), "", "还欠着的本金", null, ' data-bsum="balance"'],
+    ["已付利息", money(paid), paid > 0 ? "down" : "", "付出去的利息", null, ' data-bsum="interest"'],
+    ["未付利息", money(due), due > 0 ? "up" : "", "应付未付，不计入总资产", null, ' data-bsum="due"'],
+    ["已完成", done + " 笔", done > 0 ? "down" : "", "本金利息都付清了", null, ' data-bsum="done"']
+  ]);
+  if (!rows.length) {
+    box.innerHTML = state.borrowings.length ? hiddenEmptyHTML("借入记录")
+      : '<div class="empty"><b>还没有借入记录</b>点右上角「＋ 新增」记一笔借进来的钱</div>';
+    return;
+  }
+  box.innerHTML = rows.map(function (x) { return debtCardHTML(x.l, x.c, isOpen("borrow", x.l.id), "borrow"); }).join("");
+}
+/* 实际入账：填了就以它为准（现金真的到账多少），没填才用入账明细汇总 */
+function collectGot(c) {
+  const a = num(c && c.actual);
+  if (a > 0) return a;
+  return (c && c.entries || []).reduce(function (x, e) { return x + num(e.amount); }, 0);
+}
+function renderCollections() {
+  const box = $("#collectList");
+  const cb = $("#collectBuild");
+  if (cb) cb.textContent = "v" + APP_VERSION;
+  if (!box) return;
+  const rows = live(state.collections).map(function (c) {
+    const got = collectGot(c);
+    return { c: c, got: got, left: Math.max(0, num(c.amount) - got), done: got >= num(c.amount) - 0.004 };
+  }).sort(function (a, b) { return (a.done ? 1 : 0) - (b.done ? 1 : 0); });
+  const total = rows.reduce((a, x) => a + num(x.c.amount), 0);
+  const got = rows.reduce((a, x) => a + x.got, 0);
+  paintStats("#collectStats", [
+    ["项目数", rows.length + " 个", "", "全部项目", null, ' data-csum="count"'],
+    ["总金额", money(total), "", "应收合计", null, ' data-csum="amount"'],
+    ["已入账", money(got), "down", "实际到账合计", null, ' data-csum="got"'],
+    ["未入账", money(Math.max(0, total - got)), "up", "还差多少", null, ' data-csum="left"'],
+    ["已完成", rows.filter(x => x.done).length + " 个", "down", "收齐的项目", null, ' data-csum="done"'],
+    ["未完成", rows.filter(x => !x.done).length + " 个", "warn", "还没收齐", null, ' data-csum="open"']
+  ]);
+  if (!rows.length) {
+    box.innerHTML = state.collections.length ? hiddenEmptyHTML("项目款项")
+      : '<div class="empty"><b>还没有项目款项</b>点右上角「＋ 新增」记一个项目的应收与实收</div>';
+    return;
+  }
+  box.innerHTML = rows.map(function (x) {
+    const c = x.c, open = isOpen("collect", c.id);
+    const eRows = (c.entries || []).map(function (e) {
+      return '<div class="rep-row"><span class="rep-d">' + esc(e.date) + '</span><b class="num">' + money(e.amount) + '</b>' +
+        '<em>' + esc(cashAccountLabel(e.account) || "未选账户") + (e.note ? " · " + esc(e.note) : "") + '</em>' +
+        '<button type="button" class="mini" data-centry="edit:' + esc(e.id) + '" data-id="' + esc(c.id) + '">改</button>' +
+        '<button type="button" class="mini danger" data-centry="del:' + esc(e.id) + '" data-id="' + esc(c.id) + '">撤销</button></div>';
+    }).join("");
+    return '<article class="item' + (open ? " is-open" : "") + '" data-id="' + esc(c.id) + '">' +
+      '<div class="item-head" data-fold="collect" role="button" tabindex="0" aria-expanded="' + (open ? "true" : "false") + '">' +
+      '<div class="item-top"><div class="item-title"><span class="tag inv">入账</span><b>' + esc(c.project || "未命名项目") + '</b>' +
+        '<span class="code">' + money(c.amount, 0) + '</span></div>' +
+      '<div class="item-value"><div class="num strong">' + money(x.got, 0) + '</div>' +
+        '<div class="num small ' + (x.done ? "down" : "up") + '">' + (x.done ? "已收齐" : "未入账 " + money(x.left, 0)) + '</div></div></div>' +
+      '<div class="item-sum"><span>已入账 <i>' + money(x.got) + '</i></span><span>未入账 <i>' + money(x.left) + '</i></span>' +
+        '<span>入账 ' + (c.entries || []).length + ' 笔</span></div><span class="chev" aria-hidden="true"></span></div>' +
+      '<div class="fold"><div class="kv">' +
+        '<div><span>项目名称</span><b>' + esc(c.project || "—") + '</b></div>' +
+        '<div><span>入账金额</span><b class="num">' + money(c.amount) + '</b></div>' +
+        '<div><span>入账时间</span><b class="num">' + esc(c.date) + '</b></div>' +
+        '<div><span>实际入账</span><b class="num down">' + money(x.got) + '</b></div>' +
+        '<div><span>未入账</span><b class="num up">' + money(x.left) + '</b></div>' +
+        '<div><span>入账账户</span><b>' + esc(cashAccountLabel(c.account) || "未选") + '</b></div>' +
+        '<div><span>实际入账</span><b class="num down">' + money(x.got) + '</b></div>' +
+        '<div><span>联系人</span><b>' + esc(c.contact || "—") + (c.phone ? " · " + esc(c.phone) : "") + '</b></div>' +
+      '</div>' +
+      '<div class="rep-box"><div class="rep-head"><span>入账明细 · ' + (c.entries || []).length + ' 笔</span>' +
+        '<button type="button" class="mini" data-centry="add" data-id="' + esc(c.id) + '">＋ 二次入账</button></div>' +
+        (eRows ? '<div class="rep-list">' + eRows + '</div>' : '<p class="hint">还没有入账记录</p>') + '</div>' +
+      '<div class="photo-cell" style="margin-top:10px"><button type="button" class="btn small" data-photo="open" data-id="' + esc(c.id) + '" data-kind="collect">照片 ' +
+        ((c.photos || []).length ? "（" + c.photos.length + " 张）" : "· 上传 / 下载") + '</button></div>' +
+      (c.note ? '<p class="hint note" data-note="' + esc(c.id) + '" data-notekind="collect" role="button" tabindex="0">' + esc(c.note) + '</p>' : '') +
+      '<div class="row-actions"><button type="button" class="mini" data-edit="' + esc(c.id) + '" data-kind="collect">编辑</button>' +
+        '<button type="button" class="mini danger" data-del="' + esc(c.id) + '" data-kind="collect">删除</button></div>' +
+      '</div></article>';
+  }).join("");
+}
+function renderLoanAll() {
+  renderLoans();
+  if (loanTabNow() === "borrow") renderBorrowings();
+  else if (loanTabNow() === "collect") renderCollections();
+}
+
+
+/* ============ 借入 / 项目款项：表单与弹窗 ============ */
+function detailListHTML(rows, sum) {
+  if (!rows.length) return '<div class="empty" style="padding:14px">这一项还没有记录</div>';
+  return '<div class="dl-list">' + rows.map(function (r) {
+    const neg = r.v < 0;
+    return '<div class="dl-row"><div class="dl-main"><b>' + esc(r.t || "") + '</b><small>' + esc(r.s || "") + "</small></div>" +
+      '<div class="num strong' + (neg ? " down" : "") + '">' + (neg ? "-" : "") + money(Math.abs(r.v)) + "</div></div>";
+  }).join("") + '</div><p class="hint" style="margin-top:8px">合计 <b class="num">' + money(sum) + "</b></p>";
+}
+function termField(l) {
+  return field("期限", '<div class="row2"><input type="text" inputmode="numeric" name="termValue" value="' + esc(l ? l.termValue : 12) +
+    '"><select name="termUnit">' + [["day", "天"], ["month", "个月"], ["year", "年"]].map(function (x) {
+      return '<option value="' + x[0] + '"' + (l && l.termUnit === x[0] ? " selected" : (!l && x[0] === "month" ? " selected" : "")) + ">" + x[1] + "</option>";
+    }).join("") + "</select></div>");
+}
+function rateField(l) {
+  return field("利率", '<div class="row2"><input type="text" inputmode="decimal" name="rate" value="' + esc(l ? num(l.rate) : "") + '"><select name="rateUnit">' +
+    '<option value="year"' + (!l || l.rateUnit !== "month" ? " selected" : "") + ">% / 年</option>" +
+    '<option value="month"' + (l && l.rateUnit === "month" ? " selected" : "") + ">% / 月</option></select></div>");
+}
+function openBorrowForm(id) {
+  const l = id ? (state.borrowings || []).filter(function (x) { return x.id === id; })[0] : null;
+  const body =
+    field("出借人", '<input type="text" name="name" value="' + esc(l ? l.name : "") + '" placeholder="向谁借的">') +
+    field("借入金额", '<input type="text" inputmode="decimal" name="amount" value="' + esc(l ? num(l.amount) : "") + '">') +
+    field("起算日", '<input type="date" name="startDate" value="' + esc(l ? l.startDate : todayISO()) + '">') +
+    termField(l) + rateField(l) +
+    field("联系电话", '<input type="tel" inputmode="tel" maxlength="20" name="phone" placeholder="选填" value="' + esc(l ? (l.phone || "") : "") + '">') +
+    field("入款账户", '<select name="cashAccount">' + cashAccountOptions(l ? l.cashAccount : "", true) + "</select>") +
+    field("备注", '<textarea name="note" rows="2">' + esc(l ? l.note : "") + "</textarea>") +
+    '<p class="err" id="borrowErr" hidden></p>';
+  const ov = Sheet.open((l ? "编辑" : "新增") + "借入 · v" + APP_VERSION, body, function (v) {
+    const amt = num(v.amount);
+    if (!(amt > 0)) { toast("借入金额要大于 0"); return false; }
+    if (!isDateStr(v.startDate)) { toast("起算日不对"); return false; }
+    const rec = l || { id: uid(), repayments: [], photos: [], updatedAt: 0 };
+    rec.name = asStr(v.name); rec.amount = amt; rec.startDate = v.startDate;
+    rec.termValue = Math.max(1, num(v.termValue) || 1);
+    rec.termUnit = ["day", "month", "year"].indexOf(v.termUnit) >= 0 ? v.termUnit : "month";
+    rec.rate = Math.max(0, num(v.rate)); rec.rateUnit = v.rateUnit === "month" ? "month" : "year";
+    rec.cashAccount = asStr(v.cashAccount); rec.note = asStr(v.note);
+    rec.phone = asStr(v.phone);
+    /* 借进来的钱进现金：第一次保存时入账，之后改金额只补差额 */
+    const before = l ? num(l.amount) : 0;
+    if (!l) state.borrowings.push(rec);
+    const delta = amt - before;
+    if (delta) {
+      cashDelta(delta, rec.cashAccount);
+      logCashFlow("borrow", delta, rec.cashAccount, rec.startDate, "借入 · " + (rec.name || "未填"));
+    }
+    rec.updatedAt = Date.now();
+    commit(); toast(l ? "已更新" : "已记一笔借入"); setTimeout(renderBorrowings, 60);
+    return true;
+  }, l ? "保存" : "记一笔");
+  ov.querySelector("form").addEventListener("submit", function () { /* 交给 Sheet */ });
+}
+function openCollectForm(id) {
+  const c = id ? (state.collections || []).filter(function (x) { return x.id === id; })[0] : null;
+  const body =
+    field("项目名称", '<input type="text" name="project" value="' + esc(c ? c.project : "") + '">') +
+    field("入账金额（应收）", '<input type="text" inputmode="decimal" name="amount" value="' + esc(c ? num(c.amount) : "") + '">') +
+    field("入账时间", '<input type="date" name="date" value="' + esc(c ? c.date : todayISO()) + '">') +
+    field("实际入账（元）", '<input type="text" inputmode="decimal" name="actual" placeholder="留空 = 按入账明细自动算" value="' + esc(c && num(c.actual) ? num(c.actual) : "") + '">') +
+    field("联系人姓名", '<input type="text" name="contact" maxlength="30" value="' + esc(c ? (c.contact || "") : "") + '">') +
+    field("联系电话", '<input type="tel" inputmode="tel" maxlength="20" name="phone" value="' + esc(c ? (c.phone || "") : "") + '">') +
+    field("入账账户", '<select name="account">' + cashAccountOptions(c ? c.account : "", false) + "</select>") +
+    field("备注", '<textarea name="note" rows="2">' + esc(c ? c.note : "") + "</textarea>");
+  Sheet.open((c ? "编辑" : "新增") + "项目款项 · v" + APP_VERSION, body, function (v) {
+    if (!asStr(v.project)) { toast("项目名称不能为空"); return false; }
+    if (!(num(v.amount) > 0)) { toast("入账金额要大于 0"); return false; }
+    if (!isDateStr(v.date)) { toast("入账时间不对"); return false; }
+    if (!isCashAccountValue(v.account)) { toast("请选择入账账户"); return false; }
+    const rec = c || { id: uid(), entries: [], photos: [], updatedAt: 0 };
+    rec.project = asStr(v.project); rec.amount = num(v.amount); rec.date = v.date;
+    rec.account = asStr(v.account); rec.note = asStr(v.note); rec.updatedAt = Date.now();
+    const prevGot = c ? collectGot(c) : 0;
+    rec.actual = Math.max(0, num(v.actual)); rec.contact = asStr(v.contact); rec.phone = asStr(v.phone);
+    if (!c) state.collections.push(rec);
+    /* 实际入账是「真到账」的数：差额进银行账户，并在收支记录里留一条锁定记录 */
+    const gotDiff = collectGot(rec) - prevGot;
+    if (Math.abs(gotDiff) > 0.004) {
+      cashDelta(gotDiff, rec.account);
+      logCashFlow("collect", gotDiff, rec.account, rec.date, "实际入账 · " + (rec.project || "未命名"));
+    }
+    commit(); toast(c ? "已更新" : "已新增项目"); setTimeout(renderCollections, 60);
+    return true;
+  }, c ? "保存" : "新增");
+}
+function openCollectEntryForm(cid, eid) {
+  const c = (state.collections || []).filter(function (x) { return x.id === cid; })[0];
+  if (!c) { toast("这个项目不在了"); return; }
+  const e = eid ? (c.entries || []).filter(function (x) { return x.id === eid; })[0] : null;
+  const got = (c.entries || []).reduce(function (a, x) { return a + (x.id === eid ? 0 : num(x.amount)); }, 0);
+  const left = Math.max(0, num(c.amount) - got);
+  const body =
+    '<p class="hint">应收 ' + money(c.amount) + " · 已入账 " + money(got) + " · 还差 " + money(left) + "</p>" +
+    field("本次入账金额", '<input type="text" inputmode="decimal" name="amount" value="' + esc(e ? num(e.amount) : "") + '">') +
+    field("入账时间", '<input type="date" name="date" value="' + esc(e ? e.date : todayISO()) + '">') +
+    field("入账账户", '<select name="account">' + cashAccountOptions(e ? e.account : c.account, false) + "</select>") +
+    field("备注", '<input type="text" name="note" value="' + esc(e ? e.note : "") + '">');
+  Sheet.open(e ? "更正入账" : "二次入账", body, function (v) {
+    const amt = num(v.amount);
+    if (!(amt > 0)) { toast("入账金额要大于 0"); return false; }
+    if (!isDateStr(v.date)) { toast("入账时间不对"); return false; }
+    if (!isCashAccountValue(v.account)) { toast("请选择入账账户"); return false; }
+    if (!Array.isArray(c.entries)) c.entries = [];
+    if (e) { e.amount = amt; e.date = v.date; e.account = asStr(v.account); e.note = asStr(v.note); }
+    else c.entries.push({ id: uid(), amount: amt, date: v.date, account: asStr(v.account), note: asStr(v.note) });
+    c.updatedAt = Date.now();
+    /* 入账进银行账户：现金跟着加（撤销时扣回） */
+    const before = e ? num(e.amount) : 0;
+    if (!(num(c.actual) > 0)) {   /* 实际入账已经记过账，明细不再重复进现金 */
+      cashDelta(amt - (e ? before : 0), v.account);
+      logCashFlow("collect", amt - (e ? before : 0), v.account, v.date, "项目款项 · " + (c.project || "未命名"));
+    }
+    commit(); toast(e ? "已更正" : "已记入账"); setTimeout(renderCollections, 60);
+    return true;
+  }, e ? "保存" : "记一笔");
+  void left;
+}
+function deleteCollectEntry(cid, eid) {
+  const c = (state.collections || []).filter(function (x) { return x.id === cid; })[0];
+  if (!c) return;
+  const e = (c.entries || []).filter(function (x) { return x.id === eid; })[0];
+  if (!e) { toast("这笔入账已经不在了"); return; }
+  if (!(num(c.actual) > 0)) {
+    cashDelta(-num(e.amount), e.account);
+    logCashFlow("collect", -num(e.amount), e.account, e.date, "撤销入账 · " + (c.project || "未命名"));
+  }
+  c.entries = (c.entries || []).filter(function (x) { return x.id !== eid; });
+  c.updatedAt = Date.now(); commit(); toast("已撤销这笔入账");
+  setTimeout(renderCollections, 60);
+}
+/* 借款类现金流水：所有入账出账都必须留一条收支记录，且不可删除（只能回源头改/删） */
+function logCashFlow(kind, amount, account, date, note) {
+  const amt = num(amount);
+  if (!isFinite(amt) || Math.abs(amt) < 0.005) return null;
+  if (!Array.isArray(state.cashLog)) state.cashLog = [];
+  const rec = {
+    id: uid(), kind: amt > 0 ? "in" : "out", amount: Math.abs(amt),
+    account: account || "", date: isDateStr(date) ? date : todayISO(),
+    note: note, locked: true, ref: { kind: kind, id: "" }, updatedAt: Date.now()
+  };
+  state.cashLog.push(rec);
+  return rec;
+}
+function openNoteView(kind, id) {
+  const rec = findPhotoRec(kind === "loan" ? "borrow" : kind, id) || (state.loans || []).filter(function (x) { return x.id === id; })[0];
+  if (!rec) { toast("这条记录不在了"); return; }
+  const text = asStr(rec.note);
+  if (!text) { toast("这条没有备注"); return; }
+  Sheet.open("备注 · " + esc(recTitle(kind === "loan" ? "borrow" : kind, rec)), '<p class="note-full">' + esc(text) + "</p>",
+    function () { return true; }, "关闭");
+}
+/* 借入 / 项目款项的统计格明细 */
+function openDebtSum(kind, key) {
+  const list = kind === "borrow" ? live(state.borrowings) : [];
+  const rows = [];
+  list.forEach(function (l) {
+    const c = loanCalc(l), who = l.name || "未填";
+    if (key === "principal") rows.push({ t: who, s: l.startDate + " 起 · " + rateText(l), v: num(l.amount), id: l.id });
+    else if (key === "balance" && c.balance > 0.004) rows.push({ t: who, s: "到期 " + c.maturity, v: c.balance, id: l.id });
+    else if (key === "interest") rows.push({ t: who, s: "已付利息", v: c.interestPaid, id: l.id });
+    else if (key === "due" && c.interestDue > 0.004) rows.push({ t: who, s: "应付未付", v: c.interestDue, id: l.id });
+    else if (key === "done" && c.balance <= 0.004 && c.interestDue <= 0.004) rows.push({ t: who, s: "已结清", v: num(l.amount), id: l.id });
+  });
+  const sum = rows.reduce(function (a, x) { return a + x.v; }, 0);
+  Sheet.open("借入 · 明细", detailListHTML(rows, sum), function () { return true; }, "关闭");
+}
+function openCollectSum(key) {
+  const list = live(state.collections), rows = [];
+  list.forEach(function (c) {
+    const got = (c.entries || []).reduce(function (a, e) { return a + num(e.amount); }, 0);
+    const left = Math.max(0, num(c.amount) - got);
+    if (key === "count") rows.push({ t: c.project || "未命名", s: c.date, v: num(c.amount), id: c.id });
+    else if (key === "amount") rows.push({ t: c.project || "未命名", s: "应收", v: num(c.amount), id: c.id });
+    else if (key === "got") rows.push({ t: c.project || "未命名", s: "已入账 " + (c.entries || []).length + " 笔", v: got, id: c.id });
+    else if (key === "left" && left > 0.004) rows.push({ t: c.project || "未命名", s: "还差", v: left, id: c.id });
+    else if (key === "done" && got >= num(c.amount) - 0.004) rows.push({ t: c.project || "未命名", s: "已收齐", v: num(c.amount), id: c.id });
+    else if (key === "open" && got < num(c.amount) - 0.004) rows.push({ t: c.project || "未命名", s: "未收齐", v: left, id: c.id });
+  });
+  const sum = rows.reduce(function (a, x) { return a + x.v; }, 0);
+  Sheet.open("项目款项 · 明细", detailListHTML(rows, sum), function () { return true; }, "关闭");
+}
+/* 总览八格：每格一个明细弹窗（样式同对外投资） */
+function openOvStat(key) {
+  const t = totals(), dv = dividendTotals(), rows = [];
+  const H = live(state.holdings);
+  const push = function (title, sub, v, id) { rows.push({ t: title, s: sub, v: v, id: id }); };
+  if (key === "mv") H.forEach(function (h) { push(h.name || h.code || "持仓", h.kind + " · " + num(h.shares) + " 份", holdingStats(h).mv, h.id); });
+  else if (key === "floatpl") H.forEach(function (h) {
+    const st = holdingStats(h);
+    const v = (st && typeof st.floatPL === "number") ? st.floatPL
+      : ((typeof st.pl === "number") ? st.pl : (num(st.mv) - num(h.cost)));
+    push(h.name || h.code || "持仓", "市值 " + money(st.mv) + " − 成本 " + money(h.cost), v, h.id);
+  });
+  else if (key === "realized") H.forEach(function (h) { const st = holdingStats(h); if (Math.abs(st.realized) > 0.004) push(h.name || h.code, "已实现", st.realized, h.id); });
+  else if (key === "principal") live(state.deposits).forEach(function (d) { push(d.bank || "定存", d.startDate + " · " + d.rate + "%", num(d.principal), d.id); });
+  else if (key === "accrued") live(state.deposits).forEach(function (d) {
+    const c = depositCalc(d);
+    push(d.bank || "定存", "已产生 " + money(c.accrued) + " · 未产生 " + money(Math.max(0, c.interest - c.accrued)), c.accrued, d.id);
+  });
+  else if (key === "loanReceived") live(state.loans).forEach(function (l) { const c = loanCalc(l); push(l.borrower || "借款", "已付利息", c.interestPaid, l.id); });
+  else if (key === "cash") CASH_KEYS.forEach(function (k) { push(CASH_LABEL[k], "账户余额", num((state.cashParts || {})[k]), ""); });
+  else if (key === "dividend") live(state.investments).forEach(function (it) { const v = investDivCNY(it); if (v > 0.004) push(it.project || "对外投资", "累计分红", v, it.id); });
+  const T = { mv: "持仓市值", floatpl: "持仓浮动盈亏", realized: "已实现盈亏", principal: "定存本金", accrued: "定存应计利息", loanReceived: "已付利息", cash: "现金 / 备用金", dividend: "累计分红" }[key] || "明细";
+  const sum = key === "cash" ? num(t.cash) : rows.reduce(function (a, x) { return a + x.v; }, 0);
+  Sheet.open(T + " · 明细", detailListHTML(rows, sum), function () { return true; }, "关闭");
+  void dv;
 }
 
 /* ============ 借款统计格的明细弹窗 ============ */
@@ -2796,6 +3298,9 @@ function render() {
   renderHoldings();
   renderDeposits();
   renderLoans();
+  bindLoanWiring();
+  setLoanTab(loanTabNow());
+  renderAutoSaveCard();
   renderSettings();
   applyCollapse();
 }
@@ -3653,10 +4158,12 @@ function cashLogRows(limit) {
   const max = limit || 30;
   if (!log.length) return '<div class="empty" style="padding:14px"><b>还没有收支记录</b>点上面「＋ 记一笔」开始记</div>';
   return '<div class="cash-log">' + log.slice(0, max).map(function (x) {
-    return '<div class="cash-log-row"><span class="cash-log-date">' + esc(x.date) + "</span>" +
-      '<span class="cash-log-acc">' + esc(CASH_LABEL[x.account] || "—") + (x.note ? " · " + esc(x.note) : "") + "</span>" +
+    return '<div class="cash-log-row" data-cashview="' + esc(x.id) + '" role="button" tabindex="0" aria-label="查看这笔收支详情">' +
+      '<span class="cash-log-date">' + esc(x.date) + "</span>" +
+      '<span class="cash-log-acc">' + esc(cashAccountLabel(x.account) || "—") + (x.note ? " · " + esc(x.note) : "") + "</span>" +
       '<b class="num ' + (x.kind === "in" ? "up" : "down") + '">' + (x.kind === "in" ? "+" : "−") + money(x.amount) + "</b>" +
-      '<button type="button" class="mini" data-cashlog="' + esc(x.id) + '">删</button></div>';
+      (x.locked ? '<span class="pill" style="font-size:11px">自动</span>' : '<button type="button" class="mini" data-cashlog="' + esc(x.id) + '">删</button>') +
+      "</div>";
   }).join("") + "</div>" +
     (log.length > max ? '<p class="hint" style="margin-top:6px">只显示最近 ' + max + " 条（共 " + log.length + " 条）</p>" : "");
 }
@@ -3798,6 +4305,25 @@ function deleteCashLog(id) {
     }, "删除");
 }
 /* 隐藏的记录：逐条勾选，取消勾选就是收起 */
+function openCashLogDetail(id) {
+  const x = (state.cashLog || []).filter(function (r) { return r.id === id; })[0];
+  if (!x) { toast("这笔收支已经不在了"); return; }
+  const refTxt = x.locked && x.ref ? ({
+    loan: "借出款项", borrow: "借入款项", collect: "项目款项", trade: "买卖流水"
+  }[x.ref.kind] || "自动生成") : "";
+  const body =
+    '<div class="kv">' +
+      '<div><span>方向</span><b class="' + (x.kind === "in" ? "up" : "down") + '">' + (x.kind === "in" ? "收入" : "支出") + '</b></div>' +
+      '<div><span>金额</span><b class="num">' + money(x.amount) + '</b></div>' +
+      '<div><span>日期</span><b class="num">' + esc(x.date) + '</b></div>' +
+      '<div><span>账户</span><b>' + esc(cashAccountLabel(x.account) || "自动（现金 → 银行卡 → 微信 → 支付宝）") + '</b></div>' +
+      '<div><span>备注</span><b>' + esc(x.note || "—") + '</b></div>' +
+      (refTxt ? '<div><span>来源</span><b>' + esc(refTxt) + ' · 自动生成</b></div>' : '') +
+    '</div>' +
+    (x.locked ? '<p class="hint">这笔是借款 / 项目款项自动记的，不能单独删——回源头改或删，这里会跟着变。</p>'
+      : '<p class="hint">这条是手动记的，可以在列表里直接删掉。</p>');
+  Sheet.open("收支详情 · v" + APP_VERSION, body, function () { return true; }, "关闭");
+}
 function openHiddenList() {
   const total = hiddenCount();
   const body =
@@ -3824,14 +4350,18 @@ function openLoanForm(id) {
   const unit = l ? l.termUnit : "month";
   const body =
     field("借款人", '<input name="borrower" maxlength="30" placeholder="如 张三" value="' + esc(l ? l.borrower : "") + '">') +
+    field("联系电话", '<input name="phone" type="tel" inputmode="tel" maxlength="20" placeholder="选填，如 13800000000" value="' + esc(l ? (l.phone || "") : "") + '">') +
     '<div class="field-row">' +
       field("借款金额（元）", '<input name="amount" type="text" inputmode="decimal" required placeholder="0" value="' + (l ? l.amount : "") + '">') +
       field("借款时间", '<input name="startDate" type="date" required value="' + (l ? l.startDate : todayISO()) + '">') +
     "</div>" +
     '<div class="field-row">' +
       field("借款期限", '<input name="termValue" type="text" inputmode="numeric" required value="' + (l ? l.termValue : 12) + '">') +
-      field("年利率（%）", '<input name="rate" type="text" inputmode="decimal" placeholder="如 5，可填 0" value="' + (l ? l.rate : "") + '">') +
+      field("利率（%）", '<div class="row2"><input name="rate" type="text" inputmode="decimal" placeholder="如 5，可填 0" value="' + (l ? l.rate : "") + '">' +
+        '<select name="rateUnit"><option value="year"' + (!l || l.rateUnit !== "month" ? " selected" : "") + ">% / 年</option>" +
+        '<option value="month"' + (l && l.rateUnit === "month" ? " selected" : "") + ">% / 月</option></select></div>") +
     "</div>" +
+    field("逾期利率（%，选填）", '<input name="overdueRate" type="text" inputmode="decimal" placeholder="逾期后按这个年利率算罚息，0 或留空不算" value="' + esc(l ? (l.overdueRate || "") : "") + '">') +
     field("期限单位", '<div class="seg">' +
       '<label><input type="radio" name="termUnit" value="month"' + (unit === "month" ? " checked" : "") + '><span>个月</span></label>' +
       '<label><input type="radio" name="termUnit" value="year"' + (unit === "year" ? " checked" : "") + '><span>年</span></label>' +
@@ -3842,9 +4372,12 @@ function openLoanForm(id) {
     '利息按单利、未还本金分段算到今天，还款在列表里点「还款」逐笔记录。</p>';
   Sheet.open(l ? "编辑借款" : "新增借出款", body, function (v) {
     const borrower = String(v.borrower || "").trim();
+    const phone = asStr(v.phone);
+    if (phone && !/^[0-9+\-\s]{5,20}$/.test(phone)) { toast("电话号码格式不对"); return false; }
     const amtT = numText(v.amount), rateT = numText(v.rate), termT = numText(v.termValue);
     const startDate = String(v.startDate || "").trim();
     if (!borrower) { toast("请填借款人名称"); return false; }
+    const rateUnit = v.rateUnit === "month" ? "month" : "year";
     if (borrower.length > 30) { toast("借款人名称最多 30 个字"); return false; }
     if (!amtT.ok) { toast("借款金额填的不是数字"); return false; }
     if (amtT.empty || amtT.value <= 0) { toast("借款金额需大于 0"); return false; }
@@ -3860,6 +4393,8 @@ function openLoanForm(id) {
     const payload = {
       borrower: borrower, amount: amount, startDate: startDate,
       termValue: termValue, termUnit: v.termUnit || "month", rate: rate,
+      rateUnit: rateUnit, phone: phone,
+      overdueRate: Math.min(LOAN_MAX_RATE, Math.max(0, num(v.overdueRate))),
       note: String(v.note || "").trim(),
       /* "" = 自动（瀑布）；选了具体账户就只动那一格 */
       cashAccount: CASH_KEYS.indexOf(v.cashAccount) >= 0 ? v.cashAccount : ""
@@ -3869,10 +4404,12 @@ function openLoanForm(id) {
       const diff = amount - num(l.amount);
       Object.assign(l, payload);
       cashDelta(-diff, payload.cashAccount);
+      logCashFlow("loan", -diff, payload.cashAccount, todayISO(), "借出款调整 · " + borrower);
       touchRec(l);
     } else {
       state.loans.push(Object.assign({ id: uid(), repayments: [], cashBooked: true }, payload));
       cashDelta(-amount, payload.cashAccount);  /* 借出去的钱从现金里出 */
+      logCashFlow("loan", -amount, payload.cashAccount, startDate, "借出 · " + borrower);
       touchRec(state.loans[state.loans.length - 1]);
     }
     commit();
@@ -4635,6 +5172,26 @@ function investmentTotals() {
     stale: investStaleList().length
   };
 }
+/* 三类记录共用一套照片逻辑：kind = invest | borrow | collect */
+function photoStore(kind) {
+  return kind === "borrow" ? state.borrowings
+    : (kind === "collect" ? state.collections : (kind === "loan" ? state.loans : state.investments));
+}
+function findPhotoRec(kind, id) {
+  const arr = photoStore(kind) || [];
+  for (let i = 0; i < arr.length; i++) if (arr[i] && arr[i].id === id) return arr[i];
+  /* 兜底：类型传错（老卡片没带 data-kind）也要能找到，别把「项目不在了」当结果 */
+  const all = [state.investments, state.loans, state.borrowings, state.collections];
+  for (let k = 0; k < all.length; k++) {
+    const a = Array.isArray(all[k]) ? all[k] : [];
+    for (let i = 0; i < a.length; i++) if (a[i] && a[i].id === id && Array.isArray(a[i].photos)) return a[i];
+  }
+  return null;
+}
+function recTitle(kind, r) {
+  return kind === "borrow" ? (r.name || "借入款项")
+    : (kind === "collect" ? (r.project || "项目款项") : (r.borrower || r.project || "未命名记录"));
+}
 function findInvest(id) {
   return (state.investments || []).filter(function (x) { return x.id === id; })[0] || null;
 }
@@ -4791,23 +5348,24 @@ function openAddonForm(invId, addonId) {
   }
 }
 /* 照片：每笔投资可传多张，压缩后存在本地 */
-function openPhotoSheet(invId) {
-  const it = findInvest(invId);
+function openPhotoSheet(invId, kind) {
+  kind = kind || "invest";
+  const it = findPhotoRec(kind, invId);
   if (!it) { toast("这个项目已经不在了"); return; }
   const photos = it.photos || [];
   const body =
     '<p class="hint" style="margin-bottom:10px">每张照片会压到长边 720、JPEG 0.72（约 60KB），最多 ' + PHOTO_MAX +
     " 张（共 " + photos.length + " 张）。照片只存在这台设备上，导出 JSON 会一起带走。</p>" +
     (photos.length ? '<div class="photo-grid">' + photos.map(function (ph, i) {
-      return '<div class="photo-cell" role="button" tabindex="0" data-photo="view:' + esc(ph.id) + '" data-id="' + esc(it.id) + '">' +
+      return '<div class="photo-cell" role="button" tabindex="0" data-photo="view:' + esc(ph.id) + '" data-id="' + esc(it.id) + '" data-kind="' + esc(kind) + '">' +
         '<img src="' + esc(ph.data) + '" alt="' + esc(ph.name || ("投资照片 " + (i + 1))) + '">' +
         '<span class="photo-idx">' + (i + 1) + '</span>' +
-        '<button type="button" class="photo-btn" data-photo="down:' + esc(ph.id) + '" data-id="' + esc(it.id) +
+        '<button type="button" class="photo-btn" data-photo="down:' + esc(ph.id) + '" data-id="' + esc(it.id) + '" data-kind="' + esc(kind) +
         '" aria-label="保存这张照片">⤓</button>' +
-        '<button type="button" class="photo-del" data-photo="del:' + esc(ph.id) + '" data-id="' + esc(it.id) +
+        '<button type="button" class="photo-del" data-photo="del:' + esc(ph.id) + '" data-id="' + esc(it.id) + '" data-kind="' + esc(kind) +
         '" aria-label="删除这张照片">×</button></div>';
     }).join("") + "</div>" +
-      '<div class="photo-tools"><button type="button" class="btn small" data-photo="downall" data-id="' + esc(it.id) +
+      '<div class="photo-tools"><button type="button" class="btn small" data-photo="downall" data-id="' + esc(it.id) + '" data-kind="' + esc(kind) +
       '">全部保存</button><span class="hint">点图可放大查看</span></div>'
       : '<div class="empty" style="padding:14px"><b>还没有照片</b>点下面选图，可以一次选多张</div>') +
     '<p class="hint" style="margin-top:10px">手机上点「⤓」会弹系统分享面板，选「<b>存储图像</b>」才会进相册（网页没有直接写相册的权限）；' +
@@ -4816,7 +5374,7 @@ function openPhotoSheet(invId) {
       '<label class="btn small" style="display:block;text-align:center;margin-top:12px">＋ 选择照片' +
       '<input type="file" id="invPhotoInput" accept="image/*" multiple hidden></label>') +
     '<p class="err" id="photoErr" hidden></p>';
-  const ov = Sheet.open("照片 · " + esc(it.project || "未命名项目"), body, function () { return true; }, "关闭");
+  const ov = Sheet.open("照片 · " + esc(recTitle(kind, it)), body, function () { return true; }, "关闭");
   const input = ov.querySelector("#invPhotoInput");
   if (input) input.addEventListener("change", async function () {
     const files = Array.prototype.slice.call(input.files || []);
@@ -4844,8 +5402,9 @@ function openPhotoSheet(invId) {
   });
 }
 /* 点图放大：整屏看，带下载和关闭 */
-function openPhotoView(invId, photoId) {
-  const it = findInvest(invId);
+function openPhotoView(invId, photoId, kind) {
+  kind = kind || "invest";
+  const it = findPhotoRec(kind, invId);
   const list = it ? (it.photos || []) : [];
   const idx = list.map(function (x) { return x.id; }).indexOf(photoId);
   const ph = idx >= 0 ? list[idx] : null;
@@ -4862,14 +5421,14 @@ function openPhotoView(invId, photoId) {
     '<div class="photo-tools" style="justify-content:space-between">' +
       '<span class="hint">' + esc(it.project || "") + " · 第 " + (idx + 1) + " / " + list.length + " 张" +
         (multi ? " · 可左右滑动" : "") + " · 长按图片可「存储到照片」</span>" +
-      '<button type="button" class="btn small" data-photo="down:' + esc(ph.id) + '" data-id="' + esc(it.id) + '">保存到相册</button>' +
+      '<button type="button" class="btn small" data-photo="down:' + esc(ph.id) + '" data-id="' + esc(it.id) + '" data-kind="' + esc(kind) + '">保存到相册</button>' +
     "</div>";
   /* 取消 / 叉 / 点遮罩 → 只回照片列表，不退回主界面 */
-  const ov = Sheet.open("查看照片", body, function () { return true; }, "关闭", function () { openPhotoSheet(invId); });
+  const ov = Sheet.open("查看照片", body, function () { return true; }, "关闭", function () { openPhotoSheet(invId, kind); });
   const stage = ov.querySelector(".photo-stage");
   const step = function (d) {
     const n = (idx + d + list.length) % list.length;
-    openPhotoView(invId, list[n].id);
+    openPhotoView(invId, list[n].id, kind);
   };
   if (stage) {
     let sx = 0, sy = 0, moved = false;
@@ -4919,8 +5478,9 @@ function dataUrlToBlob(u) {
   } catch (e) { return null; }
 }
 /* 能选路径就弹系统「另存为」，选不了（iOS Safari）就走下载 */
-async function downloadPhoto(invId, photoId) {
-  const it = findInvest(invId);
+async function downloadPhoto(invId, photoId, kind) {
+  kind = kind || "invest";
+  const it = findPhotoRec(kind, invId);
   const list = it ? (it.photos || []) : [];
   const idx = list.map(function (x) { return x.id; }).indexOf(photoId);
   const ph = idx >= 0 ? list[idx] : null;
@@ -4987,8 +5547,9 @@ async function downloadPhoto(invId, photoId) {
     return false;
   }
 }
-async function downloadAllPhotos(invId) {
-  const it = findInvest(invId);
+async function downloadAllPhotos(invId, kind) {
+  kind = kind || "invest";
+  const it = findPhotoRec(kind, invId);
   const list = it ? (it.photos || []) : [];
   if (!list.length) { toast("还没有照片"); return; }
   const base = String(it.project || "投资").replace(/[\\/:*?"<>|]/g, "") || "投资";
@@ -5019,12 +5580,13 @@ async function downloadAllPhotos(invId) {
     return false;
   }
   /* 桌面 / 不支持分享：逐个触发，浏览器可能只放行第一个 */
-  list.forEach(function (ph, i) { setTimeout(function () { downloadPhoto(invId, ph.id); }, i * 400); });
+  list.forEach(function (ph, i) { setTimeout(function () { downloadPhoto(invId, ph.id, kind); }, i * 400); });
   toast("开始下载 " + list.length + " 张" + (list.length > 1 ? "（若只存下一张，可逐张点 ⤓）" : ""));
   return true;
 }
-function deleteInvestPhoto(invId, photoId) {
-  const it = findInvest(invId);
+function deleteInvestPhoto(invId, photoId, kind) {
+  kind = kind || "invest";
+  const it = findPhotoRec(kind, invId);
   if (!it) return;
   it.photos = (it.photos || []).filter(function (x) { return x.id !== photoId; });
   it.updatedAt = Date.now();
@@ -5891,18 +6453,20 @@ document.addEventListener("click", function (e) {
   if (ph) {
     const v = String(ph.dataset.photo || ""), op = v.split(":")[0], pid = v.slice(op.length + 1);
     const iid = ph.dataset.id || "";
-    if (op === "view") openPhotoView(iid, pid);
+    const pkind = ph.dataset.kind || "invest";     /* 借出 / 借入 / 项目款项 共用一套照片逻辑 */
+    if (op === "view") openPhotoView(iid, pid, pkind);
     else if (op === "prev" || op === "next") {
-      const it2 = findInvest(iid);
+      const it2 = findPhotoRec(pkind, iid);
       const ps = it2 ? (it2.photos || []) : [];
       const cur = ps.map(function (x) { return x.id; }).indexOf(String(ph.dataset.cur || ""));
       if (cur >= 0 && ps.length > 1) {
         const n = (cur + (op === "next" ? 1 : ps.length - 1)) % ps.length;
-        openPhotoView(iid, ps[n].id);
+        openPhotoView(iid, ps[n].id, pkind);
       }
-    } else if (op === "down") downloadPhoto(iid, pid);
-    else if (op === "downall") downloadAllPhotos(iid);
-    else if (op === "del") deleteInvestPhoto(iid, pid);
+    } else if (op === "down") downloadPhoto(iid, pid, pkind);
+    else if (op === "downall") downloadAllPhotos(iid, pkind);
+    else if (op === "del") deleteInvestPhoto(iid, pid, pkind);
+    else if (op === "open") openPhotoSheet(iid, pkind);
     return;
   }
 
@@ -5973,6 +6537,9 @@ document.addEventListener("click", function (e) {
   if (cashAdd) { openCashEntryForm(); return; }
   const cashDel = e.target.closest("[data-cashlog]");
   if (cashDel) { deleteCashLog(cashDel.getAttribute("data-cashlog")); return; }
+  /* 收支记录：点整行看详情（锁定的记录没有删除按钮，只能看） */
+  const cashView = e.target.closest("[data-cashview]");
+  if (cashView) { openCashLogDetail(cashView.getAttribute("data-cashview")); return; }
 
   const tab = e.target.closest("[data-tab]");
   if (tab) { switchTab(tab.dataset.tab); return; }
@@ -6675,6 +7242,133 @@ window.addEventListener("pageshow", function (ev) {
 });
 
 
+/* ============ 19:00–23:59 登录自动存一次 ============ */
+const AUTOSAVE_DB = "licai-autosave";
+const AUTOSAVE_KEY = "licai_autosave_at";
+function autoSaveWindowOpen(now) {
+  const h = new Date(now || Date.now()).getHours();
+  return h >= 19 && h <= 23;
+}
+function idbHandle(kind) {
+  return new Promise(function (res) {
+    if (!window.indexedDB) { res(null); return; }
+    const rq = indexedDB.open(AUTOSAVE_DB, 1);
+    rq.onupgradeneeded = function () { try { rq.result.createObjectStore("h"); } catch (e) { /* 已存在 */ } };
+    rq.onerror = function () { res(null); };
+    rq.onsuccess = function () {
+      const db = rq.result;
+      try {
+        const g = db.transaction("h", kind === "get" ? "readonly" : "readwrite").objectStore("h");
+        if (kind === "get") { const q = g.get("file"); q.onsuccess = function () { res(q.result || null); }; q.onerror = function () { res(null); }; }
+        else { const q = g.put(kind, "file"); q.onsuccess = function () { res(true); }; q.onerror = function () { res(null); }; }
+      } catch (e) { res(null); }
+    };
+  });
+}
+/* 一次登录只存一次：用「今天」做键，同一天重开不再弹 */
+async function maybeAutoSave() {
+  if (!autoSaveWindowOpen()) return false;
+  if (!state.settings || !state.settings.autoSaveDaily) return false;
+  const key = "licai_autosave_" + todayISO();
+  try { if (localStorage.getItem(key)) return false; } catch (e) { /* 隐私模式 */ }
+  const text = payloadJSON();
+  const name = "理财记账-自动备份-" + todayISO() + ".json";
+  let ok = false, where = "";
+  try {
+    const handle = await idbHandle("get");
+    if (handle && handle.createWritable) {
+      const wr = await handle.createWritable();
+      await wr.write(new Blob([text], { type: "application/json" }));
+      await wr.close();
+      ok = true; where = handle.name || "上次选的文件";
+    }
+  } catch (e) { /* 没授权就往下走 */ }
+  if (!ok) {
+    try {
+      downloadText(name, text);
+      ok = true; where = isIOSLike() ? "文件 App → 下载" : "浏览器下载目录";
+    } catch (e) { toast("自动备份失败：" + ((e && e.message) || "浏览器不允许")); return false; }
+  }
+  try { localStorage.setItem(key, String(Date.now())); } catch (e) { /* 忽略 */ }
+  state.settings.autoSaveAt = Date.now();
+  state.settings.autoSavePath = where;
+  commit();
+  toast("已自动备份到 " + where + "（今天只存这一次）");
+  return true;
+}
+/* 选中「每次自动写入的文件」（只需一次，之后静默写） */
+async function pickAutoSaveFile() {
+  if (!window.showSaveFilePicker) { toast("这个浏览器不支持记住文件，会自动下载到下载目录"); return; }
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: "理财记账-自动备份.json",
+      types: [{ description: "JSON 备份", accept: { "application/json": [".json"] } }]
+    });
+    await idbHandle(handle);
+    toast("已记住：" + (handle.name || "备份文件") + "，今晚起自动写入");
+    renderAutoSaveCard();
+  } catch (e) { if (!e || e.name !== "AbortError") toast("没选成：" + ((e && e.name) || "未知")); }
+}
+function renderAutoSaveCard() {
+  const el = $("#autoSaveInfo");
+  if (!el) return;
+  const at = num(state.settings && state.settings.autoSaveAt);
+  el.textContent = at ? "上次自动保存：" + fmtTime(at) + (state.settings.autoSavePath ? " · " + state.settings.autoSavePath : "") : "还没自动保存过";
+}
+function bindLoanWiring() {
+  document.addEventListener("change", function (e) {
+    const t = e.target;
+    if (t && t.name === "loantab") setLoanTab(t.value);
+  });
+  const bp = $("#btnPickAutoSave"), bn = $("#btnAutoSaveNow");
+  if (bp) bp.onclick = pickAutoSaveFile;
+  if (bn) bn.onclick = function () { try { localStorage.removeItem("licai_autosave_" + todayISO()); } catch (e) { /* 忽略 */ } maybeAutoSave(); };
+  document.addEventListener("click", function (e) {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    let el;
+    if ((el = t.closest("[data-loantab-btn]"))) { setLoanTab(el.dataset.loantabBtn); return; }
+    if ((el = t.closest("[data-ovstat]"))) { openOvStat(el.dataset.ovstat); return; }
+    if ((el = t.closest("[data-bsum]"))) { openDebtSum("borrow", el.dataset.bsum); return; }
+    if ((el = t.closest("[data-csum]"))) { openCollectSum(el.dataset.csum); return; }
+    if ((el = t.closest("[data-note]"))) { openNoteView(el.dataset.notekind || "loan", el.dataset.note); return; }
+    if ((el = t.closest("[data-centry]"))) {
+      const v = String(el.dataset.centry || ""), op = v.split(":")[0], eid = v.slice(op.length + 1);
+      if (op === "add") openCollectEntryForm(el.dataset.id);
+      else if (op === "edit") openCollectEntryForm(el.dataset.id, eid);
+      else if (op === "del") deleteCollectEntry(el.dataset.id, eid);
+      return;
+    }
+    if ((el = t.closest("[data-add]"))) {
+      const k = el.dataset.add;
+      if (k === "borrow") { openBorrowForm(null); return; }
+      if (k === "collect") { openCollectForm(null); return; }
+    }
+    if ((el = t.closest("[data-edit][data-kind]"))) {
+      const k = el.dataset.kind;
+      if (k === "borrow") { openBorrowForm(el.dataset.edit); return; }
+      if (k === "collect") { openCollectForm(el.dataset.edit); return; }
+    }
+    if ((el = t.closest("[data-del][data-kind]"))) {
+      const k = el.dataset.kind;
+      if (k !== "borrow" && k !== "collect") return;
+      const arr = k === "borrow" ? state.borrowings : state.collections;
+      const rec = (arr || []).filter(function (x) { return x.id === el.dataset.del; })[0];
+      if (!rec) return;
+      Sheet.open("删除确认", '<p class="hint">删除后无法撤销，现金记录不会自动回退。</p>', function () {
+        if (k === "borrow") {
+          cashDelta(-num(rec.amount), rec.cashAccount);
+          logCashFlow("borrow", -num(rec.amount), rec.cashAccount, todayISO(), "删除借入 · " + (rec.name || "未填"));
+        }
+        state[k === "borrow" ? "borrowings" : "collections"] = arr.filter(function (x) { return x.id !== rec.id; });
+        commit(); toast("已删除");
+        setTimeout(k === "borrow" ? renderBorrowings : renderCollections, 60);
+        return true;
+      }, "删除");
+      return;
+    }
+  });
+}
 /* ============ 自动备份（快照 + 轮转） ============ */
 /* 纯前端没有后台定时器：只在「打开应用」和「数据改动」两个时机写快照。
    快照单独存一个 localStorage 键，不混进主数据，也不会被导出 JSON 带出去。 */
