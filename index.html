@@ -1141,7 +1141,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.58";
+const APP_VERSION = "2026-11-20.59";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -1495,7 +1495,8 @@ function normalize(raw) {
       seen.add(did);
       const dcur = FX_CODES.indexOf(asStr(dv.currency)) >= 0 ? asStr(dv.currency) : "";
       divs.push({ id: did, amount: amt, date: isDateStr(dv.date) ? dv.date : todayISO(),
-        currency: dcur, fxRate: dcur && dcur !== "CNY" ? Math.max(0, num(dv.fxRate)) : 1, note: asStr(dv.note) });
+        currency: dcur, fxRate: dcur && dcur !== "CNY" ? Math.max(0, num(dv.fxRate)) : 1, note: asStr(dv.note),
+        cashAccount: asStr(dv.cashAccount) });
     });
     divs.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
     /* 追投：和分红一样逐笔记，本金 = 首笔 + 所有追投 */
@@ -5721,19 +5722,34 @@ function openInvestDivForm(invId, divId) {
     field("币种", '<select name="currency">' + fxOptions((dv && dv.currency) || (it && it.currency) || "CNY") + "</select>") +
     field("人民币汇率（1 外币 = ? 元）", '<input name="fxRate" type="text" inputmode="decimal" value="' +
       fxRateFor((dv && dv.currency) || (it && it.currency) || "CNY", dv ? dv.fxRate : (it && it.fxRate)).toFixed(4) + '">') +
+    field("入账银行卡", '<select name="cashAccount">' + cashAccountOptions(dv ? dv.cashAccount : "", true) + "</select>") +
     field("备注", '<input name="note" placeholder="选填，如 2026 上半年分红" value="' + esc(dv ? dv.note : "") + '">') +
     '<p class="hint fx-preview"></p>' +
     '<p class="err" hidden></p>' +
-    '<p class="hint">每笔分红可以单独选币种（默认跟项目一致），合计按人民币汇到「现金 → 投资分红」一行。</p>';
+    '<p class="hint">每笔分红可以单独选币种（默认跟项目一致）。分红按人民币到账，进你选的银行卡（不选就按「现金 → 银行卡 → 微信 → 支付宝」自动找一个），并自动记一条收支记录。</p>';
   const ovD = Sheet.open((dv ? "编辑分红" : "记一笔分红") + " · v" + APP_VERSION, body, function (v) {
     const amount = num(v.amount);
     if (!isFinite(amount) || amount <= 0) { toast("分红金额需大于 0"); return false; }
     const dcur = FX_CODES.indexOf(v.currency) >= 0 ? v.currency : "CNY";
     const drate = dcur === "CNY" ? 1 : num(v.fxRate);
     if (dcur !== "CNY" && !(drate > 0)) { toast("请填汇率"); return false; }
-    const rec = { amount: amount, currency: dcur, fxRate: drate, date: v.date || todayISO(), note: v.note.trim() };
+    const acct = asStr(v.cashAccount);
+    const cny = amount * drate;
+    const oldCny = dv ? num(dv.amount) * fxRateFor(dv.currency || "CNY", dv.fxRate) : 0;
+    const rec = { amount: amount, currency: dcur, fxRate: drate, date: v.date || todayISO(), note: v.note.trim(), cashAccount: acct };
+    let did = dv ? dv.id : "";
     if (dv) Object.assign(dv, rec);
-    else it.dividends.push(Object.assign({ id: uid() }, rec));
+    else {
+      const made = Object.assign({ id: uid() }, rec);
+      it.dividends.push(made);
+      did = made.id;
+    }
+    /* 分红是现金收入：差额进账户，并留一条锁定的收支记录（删分红时一起撤掉） */
+    const diff = cny - oldCny;
+    if (Math.abs(diff) > 0.004) {
+      cashDelta(diff, acct);
+      logCashFlow("invest", diff, acct, rec.date, "对外投资分红 · " + (it.project || "未命名"), did);
+    }
     it.dividends.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
     it.updatedAt = Date.now();
     commit();
@@ -6542,10 +6558,16 @@ document.addEventListener("click", function (e) {
     else if (k === "divdel") {
       const it = findInvest(iid);
       if (it) {
+        const dv = (it.dividends || []).filter(function (x) { return x.id === did; })[0];
+        /* 先撤流水（每条按反方向退现金）；找不到流水（老数据）才用分红金额兜底 */
+        const n = removeCashFlows("invest", did, "对外投资分红 · ");
+        if (!n && dv) {
+          cashDelta(-num(dv.amount) * fxRateFor(dv.currency || "CNY", dv.fxRate), dv.cashAccount);
+        }
         it.dividends = (it.dividends || []).filter(function (x) { return x.id !== did; });
         it.updatedAt = Date.now();
         commit();
-        toast("已删除这笔分红");
+        toast(n ? "已删除这笔分红，收支记录也一起撤了" : "已删除这笔分红");
       }
     }
     return;
