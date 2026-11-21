@@ -108,9 +108,13 @@ html[data-theme="dark"] .btn.primary{color:#0b0e12}
 .hero-top{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;opacity:.9;letter-spacing:.6px}
 .pill{background:rgba(255,255,255,.18);padding:3px 9px;border-radius:999px;font-size:11px;letter-spacing:.2px}
 .hero-value{font-size:clamp(26px,8.6vw,38px);font-weight:700;letter-spacing:-.8px;margin:8px 0 14px;line-height:1.1;white-space:nowrap;overflow:hidden}
-.hero-row{display:flex;gap:26px;border-top:1px solid rgba(255,255,255,.22);padding-top:12px}
-.hero-row span{display:block;font-size:11.5px;opacity:.82;margin-bottom:2px}
-.hero-row b{font-size:16px;font-weight:650}
+/* 累计收益 / 收益率 / 应计利息：三格永远在同一水线上，宽度不够就自动缩字号，绝不换行错位 */
+.hero-row{display:flex;gap:14px;border-top:1px solid rgba(255,255,255,.22);padding-top:12px;align-items:flex-end}
+.hero-row>div{flex:1 1 0;min-width:0}
+.hero-row span{display:block;font-size:clamp(10px,2.9vw,11.5px);opacity:.82;margin-bottom:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero-row b{display:block;font-size:clamp(12px,3.9vw,16px);font-weight:650;line-height:1.15;
+  white-space:nowrap;letter-spacing:-.2px;font-variant-numeric:tabular-nums}
 
 /* allocation */
 .alloc{display:flex;height:12px;border-radius:999px;overflow:hidden;background:var(--card2);gap:2px}
@@ -141,6 +145,42 @@ html[data-theme="dark"] .btn.primary{color:#0b0e12}
 .cash-row label{font-size:12.5px;color:var(--muted);flex:0 0 auto}
 .cash-in{display:flex;align-items:baseline;gap:4px;flex:1 1 auto;justify-content:flex-end;min-width:0}
 .cash-in span{font-size:12px;color:var(--muted);flex:0 0 auto}
+.cash-row.acct .cash-in{align-items:center;gap:8px}
+.cash-row.acct .cash-in .mini{flex:none}
+.bank-inline{display:flex;flex-wrap:wrap;gap:4px 12px;padding:0 2px 8px;margin-top:-4px;font-size:11.5px;color:var(--muted)}
+.bank-inline b{color:var(--text);font-variant-numeric:tabular-nums}
+.bank-list{display:flex;flex-direction:column}
+.bank-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.bank-row:last-child{border-bottom:0}
+.bank-main{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
+.bank-main b{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-main small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-row>.num{flex:0 0 auto;font-size:14px;font-variant-numeric:tabular-nums}
+.bank-row .mini{flex:none}
+.photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.quote-note{margin:6px 0 0;font-size:11px;line-height:1.5;color:var(--warn);
+  background:color-mix(in srgb,var(--warn) 10%,transparent);border-radius:8px;padding:5px 8px}
+.photo-stage{position:relative;display:flex;align-items:center;justify-content:center}
+.photo-nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:50%;
+  background:rgba(0,0,0,.45);color:#fff;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;-webkit-tap-highlight-color:transparent}
+.photo-nav.prev{left:6px}.photo-nav.next{right:6px}
+.photo-nav:active{background:rgba(0,0,0,.65)}
+.photo-stage:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:12px}
+.photo-cell{position:relative;border-radius:10px;overflow:hidden;background:var(--card2);aspect-ratio:1/1;cursor:zoom-in}
+.photo-cell img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-idx{position:absolute;left:4px;top:4px;min-width:18px;height:18px;border-radius:9px;background:rgba(0,0,0,.5);
+  color:#fff;font-size:11px;line-height:18px;text-align:center;padding:0 4px;font-variant-numeric:tabular-nums}
+.photo-btn{position:absolute;right:4px;bottom:4px;width:24px;height:24px;border:0;border-radius:50%;background:rgba(0,0,0,.55);
+  color:#fff;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.photo-tools{display:flex;align-items:center;gap:10px;margin-top:10px}
+.photo-big{display:block;width:100%;max-height:62vh;object-fit:contain;border-radius:12px;background:var(--card2);
+  -webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+.photo-cell img{-webkit-touch-callout:default}
+.photo-del{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;border:0;border-radius:50%;
+  background:rgba(0,0,0,.55);color:#fff;font-size:14px;line-height:1;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;font-family:inherit}
+.photo-del:active{background:rgba(0,0,0,.78)}
 .cash-in input{width:100%;max-width:160px;text-align:right;font-size:16px;font-variant-numeric:tabular-nums;
   padding:8px 11px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text)}
 .cash-in input:focus{outline:2px solid color-mix(in srgb,var(--brand) 45%,transparent);outline-offset:1px}
@@ -238,6 +278,7 @@ html[data-theme="dark"] .tag.gold{background:color-mix(in srgb,#f0c040 20%,trans
 .stat[data-goto]:active{transform:scale(.985)}
 .stat[data-goto]:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .legend span[data-goto]{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.legend span[data-goto]::after{content:"›";margin-left:3px;font-size:12px;opacity:.45}
 .legend span[data-goto]:active{opacity:.6}
 .legend span[data-goto]:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
 
@@ -895,10 +936,26 @@ function fmtNum(n, dec) {
   if (!isFinite(n)) return "—";
   return n.toLocaleString("zh-CN", { minimumFractionDigits: 0, maximumFractionDigits: dec == null ? 2 : dec });
 }
+const WAN = 10000;
+/* 满一万改用「万」，保留两位：16800 → ¥1.68万。金额大了也一眼能读；
+   只有总资产那一格用 moneyFull() 精确到分（用户明确要求总资产不折万） */
 function money(n, dec) {
   if (!isFinite(n)) return "—";
+  if (Math.abs(n) >= WAN) {
+    const w = Number((n / WAN).toFixed(2));
+    const ws = Math.abs(w).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (w < 0 ? "-" : "") + "¥" + ws + "万";
+  }
   const d = dec == null ? 2 : dec;
   /* 先按显示精度取整再判符号：-0.001 显示成「¥0.00」而不是「-¥0.00」 */
+  const v = Number(n.toFixed(d));
+  const s = Math.abs(v).toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d });
+  return (v < 0 ? "-" : "") + "¥" + s;
+}
+/* 精确到分（只有总资产用它） */
+function moneyFull(n, dec) {
+  if (!isFinite(n)) return "—";
+  const d = dec == null ? 2 : dec;
   const v = Number(n.toFixed(d));
   const s = Math.abs(v).toLocaleString("zh-CN", { minimumFractionDigits: d, maximumFractionDigits: d });
   return (v < 0 ? "-" : "") + "¥" + s;
@@ -964,7 +1021,8 @@ const BANKS = ["工商银行", "建设银行", "农业银行", "中国银行", "
 const LOAN_MAX_RATE = 36;
 function defaultState() {
   return {
-    v: 4, cash: 0, cashParts: { bank: 0, cash: 0, wechat: 0, alipay: 0 },
+    v: 5, cash: 0, cashParts: { bank: 0, cash: 0, wechat: 0, alipay: 0 },
+    bankCards: [], fx: { at: 0, base: "CNY", rates: {} },
     holdings: [], deposits: [], loans: [], investments: [], cashLog: [],
     settings: { basis: 365, autoRefresh: true, refreshMinutes: 5, backup: { enabled: true, max: 10 },
       link: { name: "", hash: "", at: 0, dirty: false } },
@@ -994,7 +1052,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.45";
+const APP_VERSION = "2026-11-20.50";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -1008,6 +1066,18 @@ const CASH_KEYS = ["bank", "cash", "wechat", "alipay"];
 const CASH_LABEL = { bank: "银行卡存款", cash: "现金存款", wechat: "微信存款", alipay: "支付宝存款" };
 /* 扣款顺序：先动最灵活的现金，再依次动银行卡、微信、支付宝 */
 const CASH_ORDER = ["cash", "bank", "wechat", "alipay"];
+/* 对外投资可选币种：人民币按 1，其他按「1 单位外币 = ? 元」存汇率 */
+const FX_CODES = ["CNY", "USD", "HKD", "EUR", "JPY", "GBP", "AUD", "CAD", "SGD", "CHF",
+  "NZD", "KRW", "THB", "MYR", "INR", "TWD", "MOP", "AED", "RUB", "ZAR"];
+const FX_SYMBOL = { CNY: "¥", USD: "$", HKD: "HK$", EUR: "€", JPY: "¥", GBP: "£", AUD: "A$", CAD: "C$",
+  SGD: "S$", CHF: "Fr", NZD: "NZ$", KRW: "₩", THB: "฿", MYR: "RM", INR: "₹", TWD: "NT$", MOP: "MOP$",
+  AED: "د.إ", RUB: "₽", ZAR: "R" };
+const FX_LABEL = { CNY: "人民币", USD: "美元", HKD: "港币", EUR: "欧元", JPY: "日元", GBP: "英镑",
+  AUD: "澳元", CAD: "加元", SGD: "新加坡元", CHF: "瑞士法郎", NZD: "新西兰元", KRW: "韩元", THB: "泰铢",
+  MYR: "马来西亚林吉特", INR: "印度卢比", TWD: "新台币", MOP: "澳门元", AED: "阿联酋迪拉姆", RUB: "卢布", ZAR: "南非兰特" };
+/* 欧洲央行只挂牌其中一部分，剩下的靠备用源补：两个都请求，合并后优先用欧洲央行 */
+const FX_ECB = ["USD", "HKD", "EUR", "JPY", "GBP", "AUD", "CAD", "SGD", "CHF", "NZD", "KRW", "THB", "MYR", "INR", "ZAR"];
+const PHOTO_MAX = 12;              /* 一笔投资最多 12 张，压缩后每张 ~60KB */
 const CASH_COLOR = { bank: "var(--brand)", cash: "var(--down)", wechat: "var(--warn)", alipay: "var(--loan)" };
 /* 主题：auto 跟随系统，light / dark 手动锁定。CSS 只认 html[data-theme]，这里负责算出来写上去 */
 const THEMES = ["auto", "light", "dark"];
@@ -1040,6 +1110,41 @@ function setTheme(t) {
 }
 /* 金额统一两位小数，避免 0.1+0.2 那类浮点尾巴 */
 function cash2(n) { return Math.round(num(n) * 100) / 100; }
+/* 账户可以是四个内置池之一，也可以是 "bank:<卡片 id>"（钱走某一张具体的银行卡） */
+function cashAccountKey(v) {
+  const t = String(v == null ? "" : v).trim();
+  if (CASH_KEYS.indexOf(t) >= 0) return t;
+  return /^bank:[A-Za-z0-9_-]+$/.test(t) ? t : "cash";
+}
+function cashAccountLabel(k) {
+  const t = String(k || "");
+  if (t.indexOf("bank:") === 0) {
+    const c = bankCardById(t.slice(5));
+    return c ? "银行卡 · " + c.name : "银行卡";
+  }
+  return CASH_LABEL[CASH_KEYS.indexOf(t) >= 0 ? t : "cash"];
+}
+function bankCardsSum() {
+  return cash2((Array.isArray(state.bankCards) ? state.bankCards : []).reduce(function (a, c) { return a + num(c.amount); }, 0));
+}
+function bankCardById(id) {
+  return (Array.isArray(state.bankCards) ? state.bankCards : []).filter(function (c) { return c.id === id; })[0] || null;
+}
+/* 卡片的合计对齐「银行卡存款」那一格（差额进第一张卡） */
+function alignBankCards() {
+  const cards = Array.isArray(state.bankCards) ? state.bankCards : [];
+  if (!cards.length) return;
+  const diff = cash2(num(state.cashParts && state.cashParts.bank) - bankCardsSum());
+  if (Math.abs(diff) >= 0.005) cards[0].amount = cash2(num(cards[0].amount) + diff);
+}
+/* 还没有卡片时补一张「主银行卡」，把当前的银行卡存款装进去 */
+function ensureBankCard() {
+  if (!Array.isArray(state.bankCards)) state.bankCards = [];
+  if (!state.bankCards.length) {
+    state.bankCards.push({ id: uid(), name: "主银行卡", amount: cash2(num(state.cashParts && state.cashParts.bank)), note: "" });
+  }
+  return state.bankCards[0];
+}
 function cashSum(p) {
   return cash2(CASH_KEYS.reduce(function (a, k) { return a + num(p && p[k]); }, 0));
 }
@@ -1150,6 +1255,8 @@ function normalize(raw) {
       prevPrice: Math.max(0, num(h.prevPrice)),
       prevDate: isDateStr(h.prevDate) ? h.prevDate : "",
       failMsg: asStr(h.failMsg),
+      quoteSrc: asStr(h.quoteSrc),
+      quoteNote: asStr(h.quoteNote),
       source: ["auto", "manual", "fail"].indexOf(h.source) >= 0 ? h.source : "manual",
       mmf: h.mmf === true || h.mmf === 1 || h.mmf === "1" || h.mmf === "true",
       moneyPer10k: h.moneyPer10k == null || h.moneyPer10k === "" ? null : num(h.moneyPer10k),
@@ -1160,7 +1267,20 @@ function normalize(raw) {
       updatedAt: Math.max(0, num(h.updatedAt)),
       divMode: h.divMode === "reinvest" ? "reinvest" : "cash",
       dividends: list,
-      tx: (Array.isArray(h.tx) ? h.tx : []).filter(function (t) { return t && typeof t === "object" && !Array.isArray(t); })
+      /* 买卖流水：t/qty/price/fee/date 是账目本身，account/cashId 记住这笔钱走的哪张卡、
+         对应哪条收支记录（改流水时靠它把收支记录一起改掉） */
+      tx: (Array.isArray(h.tx) ? h.tx : [])
+        .filter(function (t) { return t && typeof t === "object" && !Array.isArray(t); })
+        .map(function (t) {
+          return Object.assign({}, t, {
+            id: asStr(t.id) || uid(),
+            t: t.t === "sell" ? "sell" : "buy",
+            qty: Math.max(0, num(t.qty)), price: Math.max(0, num(t.price)), fee: Math.max(0, num(t.fee)),
+            date: isDateStr(t.date) ? t.date : "",
+            note: asStr(t.note), account: asStr(t.account), cashId: asStr(t.cashId)
+          });
+        })
+        .filter(function (t) { return t.qty > 0 && t.price > 0; })
     };
   });
   const lk = (stRaw.link && typeof stRaw.link === "object" && !Array.isArray(stRaw.link)) ? stRaw.link : {};
@@ -1277,18 +1397,43 @@ function normalize(raw) {
       let did = asStr(dv.id).trim().replace(/[^A-Za-z0-9_-]/g, "");
       if (!did || seen.has(did)) did = uid();
       seen.add(did);
-      divs.push({ id: did, amount: amt, date: isDateStr(dv.date) ? dv.date : todayISO(), note: asStr(dv.note) });
+      const dcur = FX_CODES.indexOf(asStr(dv.currency)) >= 0 ? asStr(dv.currency) : "";
+      divs.push({ id: did, amount: amt, date: isDateStr(dv.date) ? dv.date : todayISO(),
+        currency: dcur, fxRate: dcur && dcur !== "CNY" ? Math.max(0, num(dv.fxRate)) : 1, note: asStr(dv.note) });
     });
     divs.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    /* 追投：和分红一样逐笔记，本金 = 首笔 + 所有追投 */
+    const addons = [];
+    (Array.isArray(it.addons) ? it.addons : []).forEach(function (rawA) {
+      const av = (rawA && typeof rawA === "object" && !Array.isArray(rawA)) ? rawA : {};
+      const amt = num(av.amount);
+      if (!isFinite(amt) || amt <= 0) return;
+      const acur = FX_CODES.indexOf(asStr(av.currency)) >= 0 ? asStr(av.currency) : "";
+      addons.push({ id: asStr(av.id) || uid(), amount: amt, date: isDateStr(av.date) ? av.date : todayISO(),
+        currency: acur, fxRate: acur && acur !== "CNY" ? Math.max(0, num(av.fxRate)) : 1, note: asStr(av.note) });
+    });
+    /* 照片：只存压缩后的 dataURL，超过 12 张或多到超额的直接丢掉，避免撑爆 localStorage */
+    const photos = [];
+    (Array.isArray(it.photos) ? it.photos : []).forEach(function (rawP) {
+      const ph = (rawP && typeof rawP === "object" && !Array.isArray(rawP)) ? rawP : {};
+      const data = typeof ph.data === "string" ? ph.data : "";
+      if (!/^data:image\//.test(data) || photos.length >= PHOTO_MAX) return;
+      photos.push({ id: asStr(ph.id) || uid(), data: data, name: asStr(ph.name), at: Math.max(0, num(ph.at)) });
+    });
+    const cur = FX_CODES.indexOf(asStr(it.currency)) >= 0 ? asStr(it.currency) : "CNY";
     return {
       id: takeId(it.id),
       hidden: !!it.hidden,
       project: asStr(it.project),
       date: isDateStr(it.date) ? it.date : todayISO(),
       amount: Math.max(0, num(it.amount)),
+      currency: cur,
+      fxRate: cur === "CNY" ? 1 : (num(it.fxRate) > 0 ? num(it.fxRate) : 0),
       contact: asStr(it.contact),
       phone: asStr(it.phone),
       dividends: divs,
+      addons: addons,
+      photos: photos,
       note: asStr(it.note),
       updatedAt: Math.max(0, num(it.updatedAt))
     };
@@ -1300,9 +1445,13 @@ function normalize(raw) {
       id: asStr(c.id) || uid(),
       kind: c.kind === "out" ? "out" : "in",
       amount: Math.max(0, num(c.amount)),
-      account: CASH_KEYS.indexOf(asStr(c.account)) >= 0 ? asStr(c.account) : "cash",
+      account: cashAccountKey(asStr(c.account)),
       date: isDateStr(c.date) ? c.date : todayISO(),
       note: asStr(c.note),
+      /* 由买卖/追投自动生成的记录：不能单独删，只能在源头改 */
+      locked: c.locked === true,
+      ref: (c.ref && typeof c.ref === "object" && !Array.isArray(c.ref) && asStr(c.ref.id))
+        ? { kind: asStr(c.ref.kind), id: asStr(c.ref.id), txId: asStr(c.ref.txId) } : null,
       updatedAt: Math.max(0, num(c.updatedAt))
     };
   }).filter(function (x) { return x.amount > 0; });
@@ -1333,7 +1482,30 @@ function normalize(raw) {
   /* 现金合计与四格明细对齐（放在补扣之后，差额自然落到「现金存款」） */
   out.cash = cash2(out.cash);
   out.cashParts = normCashParts(s.cashParts, out.cash);
-  out.v = 4;
+  /* 银行卡明细：Σ 卡片 = 银行卡存款。老数据只有一格总数，就补一张「主银行卡」，
+     以后加卡、改金额都只动卡片，总数在 save() 里自动对齐 */
+  out.bankCards = (Array.isArray(s.bankCards) ? s.bankCards : []).map(function (rawB) {
+    const b = (rawB && typeof rawB === "object" && !Array.isArray(rawB)) ? rawB : {};
+    return { id: asStr(b.id) || uid(), name: asStr(b.name) || "未命名卡", amount: cash2(num(b.amount)), note: asStr(b.note) };
+  });
+  if (!out.bankCards.length && Math.abs(num(out.cashParts.bank)) >= 0.005) {
+    out.bankCards = [{ id: uid(), name: "主银行卡", amount: cash2(out.cashParts.bank), note: "" }];
+  }
+  if (out.bankCards.length) {
+    /* 卡片是明细、银行卡存款是总数：以总数为准，差额记到第一张卡上 */
+    const diff = cash2(num(out.cashParts.bank) - out.bankCards.reduce(function (a, b) { return a + num(b.amount); }, 0));
+    if (Math.abs(diff) >= 0.005) out.bankCards[0].amount = cash2(num(out.bankCards[0].amount) + diff);
+  }
+  /* 人民币汇率：1 单位外币 = ? 元，只存最近一次拉到的 */
+  const fxRaw = (s.fx && typeof s.fx === "object" && !Array.isArray(s.fx)) ? s.fx : {};
+  const fxRates = {};
+  FX_CODES.forEach(function (c) {
+    if (c === "CNY") return;
+    const v = num(fxRaw.rates && fxRaw.rates[c]);
+    if (v > 0) fxRates[c] = v;
+  });
+  out.fx = { at: Math.max(0, num(fxRaw.at)), base: "CNY", rates: fxRates };
+  out.v = 5;
   return out;
 }
 
@@ -1367,6 +1539,9 @@ function save() {
      落盘前一定让两者相等，界面上永远不会出现「四格加起来不等于合计」 */
   state.cash = cash2(state.cash);
   state.cashParts = normCashParts(state.cashParts, state.cash);
+  /* 卡片的合计必须等于「银行卡存款」：以总数为准，差额记到第一张卡。
+     卡片自己改金额时走的是 cashDelta（总数跟着变），所以这里不会悄悄改总资产 */
+  alignBankCards();
   try { state.settings.savedAt = new Date().toISOString(); } catch (e) {}
   if (!skipDirtyMark && state.settings.link && state.settings.link.name) state.settings.link.dirty = true;   // 有改动待写回
   try { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
@@ -1666,7 +1841,7 @@ function paintStats(el, rows) {
 function renderOverview() {
   const t = totals();
   const dv = dividendTotals();
-  $("#ovTotal").textContent = money(t.total);
+  $("#ovTotal").textContent = moneyFull(t.total);
   $("#ovProfit").textContent = signedMoney(t.profit);
   $("#ovProfit").className = "num " + plClass(t.profit);
   $("#ovRate").textContent = t.invested > 0 ? pct(t.rate) : "—";
@@ -1680,13 +1855,13 @@ function renderOverview() {
 
   // 资产分布
   const parts = [
-    { k: "基金", v: live(state.holdings).filter(h => h.kind === "fund").reduce((a, h) => a + holdingStats(h).mv, 0), c: "var(--brand)", go: "holdings" },
-    { k: "股票", v: live(state.holdings).filter(h => h.kind === "stock").reduce((a, h) => a + holdingStats(h).mv, 0), c: "var(--up)", go: "holdings" },
-    { k: "黄金", v: live(state.holdings).filter(h => h.kind === "gold").reduce((a, h) => a + holdingStats(h).mv, 0), c: "#c08a00", go: "holdings" },
-    { k: "定存", v: t.principal, c: "var(--down)", go: "deposits" },
-    { k: "借出", v: t.loanBalance, c: "#7c4dff", go: "loans" },
-    { k: "利息", v: t.loanReceived, c: "#00b8a9", go: "loans" },
-    { k: "现金", v: t.cash, c: "var(--warn)", go: "deposits" }
+    { k: "基金", v: live(state.holdings).filter(h => h.kind === "fund").reduce((a, h) => a + holdingStats(h).mv, 0), c: "var(--brand)", go: "holdings", sub: "fund" },
+    { k: "股票", v: live(state.holdings).filter(h => h.kind === "stock").reduce((a, h) => a + holdingStats(h).mv, 0), c: "var(--up)", go: "holdings", sub: "stock" },
+    { k: "黄金", v: live(state.holdings).filter(h => h.kind === "gold").reduce((a, h) => a + holdingStats(h).mv, 0), c: "#c08a00", go: "holdings", sub: "gold" },
+    { k: "定存", v: t.principal, c: "var(--down)", go: "deposits", sub: "dep" },
+    { k: "借出", v: t.loanBalance, c: "#7c4dff", go: "loans", sub: "" },
+    { k: "利息", v: t.loanReceived, c: "#00b8a9", go: "loans", sub: "" },
+    { k: "现金", v: t.cash, c: "var(--warn)", go: "deposits", sub: "cash" }
   ].filter(p => p.v > 0.004);
   const sum = parts.reduce((a, p) => a + p.v, 0);
   const allocEl = $("#ovAlloc"), legendEl = $("#ovLegend");
@@ -1697,7 +1872,7 @@ function renderOverview() {
     allocEl.innerHTML = parts.map(p =>
       '<i style="width:' + (p.v / sum * 100).toFixed(2) + '%;background:' + p.c + '"></i>').join("");
     legendEl.innerHTML = parts.map(p =>
-      '<span data-goto="' + p.go + '" role="button" tabindex="0" aria-label="查看' + esc(p.k) + '明细">' +
+      '<span data-goto="' + p.go + '" data-goto-sub="' + esc(p.sub || "") + '" role="button" tabindex="0" aria-label="查看' + esc(p.k) + '明细">' +
       '<i class="dot" style="background:' + p.c + '"></i>' + p.k +
       '<em>' + money(p.v, 0) + ' · ' + (p.v / sum * 100).toFixed(1) + '%</em></span>').join("");
   }
@@ -1971,6 +2146,22 @@ function paintCal() {
   const box = $("#calBody");
   if (box) box.innerHTML = calBodyHTML();
 }
+/* 收益日历开着的时候：回到前台、以及每分钟都重算一次，跨过零点不会停在旧的一天 */
+let calTickTimer = 0;
+function refreshCalIfOpen() {
+  if (!$("#calBody")) { if (calTickTimer) { clearInterval(calTickTimer); calTickTimer = 0; } return; }
+  const keep = calCursor;
+  calData = incomeCalendar();
+  if (keep) calCursor = keep;
+  paintCal();
+}
+function startCalTick() {
+  if (calTickTimer) return;
+  calTickTimer = setInterval(function () {
+    if (document.hidden) return;
+    refreshCalIfOpen();
+  }, 60000);
+}
 function openIncomeCal() {
   calData = incomeCalendar();
   /* 默认落在最后一条有收益的那天所在的月：全部已结清时也不至于打开是一片空白 */
@@ -1980,6 +2171,7 @@ function openIncomeCal() {
   if (!calData.days.size) { toast("还没有任何收益记录，先录一笔持仓或定存"); return; }
   Sheet.open("收益日历 · v" + APP_VERSION, '<div id="calBody"></div>', function () { return true; }, "关闭");
   paintCal();
+  startCalTick();
 }
 function calShiftMonth(n) {
   const y = Number(calCursor.slice(0, 4)), m = Number(calCursor.slice(5, 7)) + n;
@@ -2078,7 +2270,7 @@ function itemFoot(srcHtml, pillHtml, actions) {
 function srcLabel(h) {
   let base;
   if (h.source === "auto") {
-    base = "自动" + (h.priceAt ? " · " + relTime(h.priceAt) : "");
+    base = "自动" + (h.quoteSrc ? "（" + h.quoteSrc + "）" : "") + (h.priceAt ? " · " + relTime(h.priceAt) : "");
     if (h.priceDate) base += " · " + (h.kind === "fund" ? "净值 " : "行情 ") + h.priceDate + dateTag(h);
   } else if (h.source === "fail") {
     base = "自动失败" + (h.failMsg ? "（" + h.failMsg + "）" : "") +
@@ -2153,6 +2345,7 @@ function renderHoldings() {
           '<i>' + esc(h.priceDate) + '</i></span>' : "") +
         '<span>持有 <i>' + fmtNum(s.shares, 2) + HOLD_UNIT[holdKindOf(h.kind)] + '</i></span>' +
       '</div>' +
+      (h.quoteNote ? '<p class="quote-note">' + esc(h.quoteNote) + '</p>' : "") +
       '<span class="chev" aria-hidden="true"></span>' +
       '</div>' +
       '<div class="fold">' +
@@ -2171,7 +2364,8 @@ function renderHoldings() {
           '<div><span>分红方式</span><b class="num">' + (h.divMode === "reinvest" ? "红利再投资" : "现金分红") + '</b></div>' +
           '<div><span>分红</span><b class="num">' + ((h.dividends || []).length
             ? (h.dividends.length + " 笔 · 再投 " + fmtNum(divStats(h).newShares, 2) + " 份") : "未记录") + '</b></div>') +
-        '<div><span>流水</span><b class="num">' + h.tx.length + ' 笔</b></div>' +
+        '<div><span>流水</span><b class="num"><button type="button" class="mini" data-act="tx" data-id="' +
+          esc(h.id) + '">' + h.tx.length + ' 笔 ›</button></b></div>' +
       '</div>' +
       itemFoot('<span class="src ' + h.source + '">' + esc(srcLabel(h)) + '</span>',
         (function () { const st = staleInfo(h); return st ? '<span class="pill ' + st.tone + '">' + esc(st.text) + '</span>' : ''; })(),
@@ -2232,24 +2426,31 @@ function setDepTab(t) {
 }
 function investCard(it) {
   const open = isOpen("investment", it.id);
-  const roi = investROI(it), n = (it.dividends || []).length, div = investDivSum(it);
+  const roi = investROI(it), n = (it.dividends || []).length, div = investDivCNY(it);
+  const cur = it.currency && it.currency !== "CNY" ? it.currency : "";
+  const addons = (it.addons || []).length, photos = (it.photos || []).length;
   return '<article class="item sm' + (open ? " is-open" : "") + '" data-id="' + esc(it.id) + '">' +
     '<div class="item-head" data-fold="investment" role="button" tabindex="0" aria-expanded="' + (open ? "true" : "false") + '">' +
       '<div class="item-top">' +
-        '<div class="item-title"><span class="tag inv">对外</span><b>' + esc(it.project || "未命名项目") + '</b></div>' +
-        '<div class="item-value"><div class="num strong">' + money(it.amount, 0) + '</div>' +
+        '<div class="item-title"><span class="tag inv">对外</span><b>' + esc(it.project || "未命名项目") + '</b>' +
+          (cur ? '<span class="code">' + esc(cur) + '</span>' : '') +
+          (photos ? '<span class="code">📷' + photos + '</span>' : '') + '</div>' +
+        '<div class="item-value"><div class="num strong">' + money(investPrincipalCNY(it), 0) + '</div>' +
           '<div class="num small up">' + (div > 0 ? "分红 " + money(div) : "还没分红") + '</div></div>' +
       '</div>' +
       '<div class="item-sum">' +
         '<span>投资日 <i>' + esc(it.date) + '</i></span>' +
         '<span>回报率 <i>' + roi.toFixed(2) + '%</i></span>' +
+        (cur ? '<span>本金 <i>' + esc(cur) + " " + money(investPrincipal(it), 0) + '</i></span>' : "") +
         '<span>' + (it.contact ? esc(it.contact) : "未填联系人") + '</span>' +
       '</div>' +
       '<span class="chev" aria-hidden="true"></span>' +
     '</div>' +
     '<div class="fold">' +
       '<div class="kv">' +
-        '<div><span>投资金额</span><b class="num">' + money(it.amount) + '</b></div>' +
+        '<div><span>投资金额</span><b class="num">' + (cur ? esc(cur) + " " : "") + money(it.amount) + '</b></div>' +
+        (cur ? '<div><span>折合人民币</span><b class="num">' + money(investPrincipalCNY(it)) + ' · ' + fxRateOf(it).toFixed(4) + '</b></div>' : "") +
+        '<div><span>追投</span><b class="num">' + (addons ? addons + " 笔 · " + money(investAddonCNYSum(it)) : "没有") + '</b></div>' +
         '<div><span>投资日期</span><b class="num">' + esc(it.date) + '</b></div>' +
         '<div><span>联系人</span><b class="num">' + (it.contact ? esc(it.contact) : "—") + '</b></div>' +
         '<div><span>联系电话</span><b class="num">' + (it.phone ? esc(it.phone) : "—") + '</b></div>' +
@@ -2258,7 +2459,9 @@ function investCard(it) {
         (it.note ? '<div><span>备注</span><b class="num">' + esc(it.note) + '</b></div>' : '') +
       '</div>' +
       itemFoot('<span class="src">仅记录 · 不计入总资产</span>', "",
+        '<button type="button" class="mini" data-invest="addon" data-id="' + esc(it.id) + '">追投</button>' +
         '<button type="button" class="mini" data-invest="divs" data-id="' + esc(it.id) + '">分红</button>' +
+        '<button type="button" class="mini" data-invest="photos" data-id="' + esc(it.id) + '">照片' + (photos ? " " + photos : "") + '</button>' +
         '<button type="button" class="mini" data-invest="edit" data-id="' + esc(it.id) + '">改</button>' +
         '<button type="button" class="mini danger" data-invest="del" data-id="' + esc(it.id) + '">删</button>') +
     '</div></article>';
@@ -2602,7 +2805,7 @@ function render() {
 function sheetSubmitBtn() { return document.querySelector(".overlay button[type=submit]"); }
 const Sheet = {
   el: null,
-  open(title, body, onSubmit, submitText) {
+  open(title, body, onSubmit, submitText, onCancel) {
     this.close();
     const ov = document.createElement("div");
     ov.className = "overlay";
@@ -2614,9 +2817,11 @@ const Sheet = {
       '<button type="submit" class="btn primary">' + esc(submitText || "保存") + '</button></div></form>';
     document.body.appendChild(ov);
     this.el = ov;
+    /* 取消/叉只回上一层：调用方传了 onCancel 就在关掉之后执行（提交成功不触发） */
+    this._onCancel = typeof onCancel === "function" ? onCancel : null;
     requestAnimationFrame(() => ov.classList.add("show"));
     ov.addEventListener("click", e => {
-      if (e.target === ov || e.target.closest("[data-close]")) Sheet.close();
+      if (e.target === ov || e.target.closest("[data-close]")) Sheet.close(true);
     });
     $("form", ov).addEventListener("submit", e => {
       e.preventDefault();
@@ -2649,11 +2854,15 @@ const Sheet = {
     });
     return ov;
   },
-  close() {
+  close(cancelled) {
     if (!this.el) return;
-    const el = this.el; this.el = null;
+    const el = this.el, back = this._onCancel;
+    this.el = null;
+    this._onCancel = null;
     el.classList.remove("show");
     setTimeout(() => el.remove(), 220);
+    /* 只有「取消 / 叉 / 点遮罩」才回溯；提交成功由调用方自己决定去哪 */
+    if (cancelled && back) setTimeout(function () { try { back(); } catch (e) { /* 上一层可能已经不在 */ } }, 240);
   }
 };
 /* 弹窗里的 <button type="button"> 一律要写 type="button"：<form> 里不写就是 submit，
@@ -2692,7 +2901,7 @@ function openHoldingForm(id, kind) {
     field("当前价（元/" + unit + "）", '<input name="price" type="text" inputmode="decimal" placeholder="留空按成本价" value="' +
       (h ? h.price : "") + '">') +
     (isGold
-      ? '<p class="hint">黄金没有公开的自动行情，价格请在列表里点「改价」手动录入（积存金按克报价，纸黄金同理）。</p>'
+      ? '<p class="hint">黄金按克报价，代码填上海黄金交易所的合约（AU9999 默认，也可填 AU9995 / AU100g，或 118.AU9999 这种带市场的写法）；6 位纯数字按 ETF 走股票行情。自动更新走东方财富，失败时保留上一次的价格。</p>'
       : field("货币基金", '<label class="chk"><input type="checkbox" name="mmf" value="1"' + (h && h.mmf ? " checked" : "") +
         '><span>净值恒为 1 元，按万份收益展示（自动识别失败时可手动勾选）</span></label>')) +
     field("备注", '<input name="note" placeholder="选填，如 招商银行代销" value="' + esc(h ? h.note : "") + '">') +
@@ -2730,48 +2939,214 @@ function openHoldingForm(id, kind) {
 }
 
 /* ============ /* ============ 买卖 ============ */
+function tradeAccountOptions(sel) {
+  const cards = Array.isArray(state.bankCards) ? state.bankCards : [];
+  const list = CASH_KEYS.map(function (k) { return [k, CASH_LABEL[k]]; })
+    .concat(cards.map(function (c) { return ["bank:" + c.id, "银行卡 · " + c.name]; }));
+  const cur = sel == null || sel === "" ? (cards.length ? "bank:" + cards[0].id : "bank") : sel;
+  return list.map(function (x) {
+    return '<option value="' + esc(x[0]) + '"' + (x[0] === cur ? " selected" : "") + ">" + esc(x[1]) + "</option>";
+  }).join("");
+}
+/* 买入 = 成交额 + 手续费（钱流出）；卖出 = 成交额 − 手续费（钱流入） */
+function txCashAmount(tx) {
+  const gross = num(tx.qty) * num(tx.price);
+  return cash2(tx.t === "sell" ? gross - num(tx.fee) : gross + num(tx.fee));
+}
+function txCashSigned(tx) { return tx.t === "sell" ? txCashAmount(tx) : -txCashAmount(tx); }
+/* 买卖都要在银行卡/现金里留痕：生成一条不可删除的收支记录，并记到指定账户 */
+function bookTradeCash(rec, tx) {
+  const acct = tx.account || tradeAccountOptions("").match(/value="([^"]*)"/)[1];
+  const log = {
+    id: uid(), kind: tx.t === "sell" ? "in" : "out", amount: txCashAmount(tx),
+    account: cashAccountKey(acct), date: tx.date || todayISO(),
+    note: (rec.name || rec.code || "持仓") + (tx.t === "sell" ? " 卖出" : " 买入"),
+    locked: true, ref: { kind: "holding", id: rec.id, txId: tx.id }, updatedAt: Date.now()
+  };
+  if (!Array.isArray(state.cashLog)) state.cashLog = [];
+  state.cashLog.push(log);
+  cashDelta(txCashSigned(tx), acct);
+  return log;
+}
 function openTrade(id, side) {
   const h = state.holdings.find(x => x.id === id);
   if (!h) return;
   const s = holdingStats(h);
+  const unit = HOLD_UNIT[holdKindOf(h.kind)];
   const body =
     field("标的", '<div class="static">' + esc(h.name || h.code) + ' <span class="code">' + esc(h.code) + "</span></div>") +
     '<div class="field-row">' +
-      field((side === "buy" ? "买入" : "卖出") + "份额", '<input name="qty" type="text" inputmode="decimal" required placeholder="0">') +
-      field("成交价（元）", '<input name="price" type="text" inputmode="decimal" required value="' + (s.price || "") + '">') +
+      field((side === "buy" ? "买入" : "卖出") + unit + "数", '<input name="qty" type="text" inputmode="decimal" required placeholder="0">') +
+      field("成交价（元/" + unit + "）", '<input name="price" type="text" inputmode="decimal" required value="' + (s.price || "") + '">') +
     "</div>" +
     '<div class="field-row">' +
       field("手续费（元）", '<input name="fee" type="text" inputmode="decimal" value="0">') +
       field("成交日期", '<input name="date" type="date" value="' + todayISO() + '">') +
     "</div>" +
-    '<p class="hint">当前持仓 ' + fmtNum(s.shares, 4) + " 份，成本价 " + s.cps.toFixed(4) +
-    " 元。卖出按平均成本结转，差额计入已实现盈亏。</p>";
+    field("结算账户", '<select name="account">' + tradeAccountOptions("") + "</select>") +
+    '<p class="hint">当前持仓 ' + fmtNum(s.shares, 4) + " " + unit + "，成本价 " + s.cps.toFixed(4) +
+    " 元。卖出按平均成本结转，差额计入已实现盈亏；这笔钱会同时记到上面的账户里，" +
+    "并在「现金 → 收支记录」留一条<b>不可删除</b>的记录（回这里改流水，那条记录会跟着变）。</p>";
   Sheet.open(side === "buy" ? "买入" : "卖出", body, function (d) {
     const qty = num(d.qty), price = num(d.price), fee = Math.max(0, num(d.fee));
-    if (qty <= 0) { toast("份额需大于 0"); return false; }
+    if (qty <= 0) { toast("数量需大于 0"); return false; }
     if (price <= 0) { toast("成交价需大于 0"); return false; }
+    const date = isDateStr(d.date) ? d.date : todayISO();
+    const tx = { id: uid(), t: side, qty: qty, price: price, fee: fee, date: date,
+      account: String(d.account || ""), cashId: "", note: "" };
+    tx.amount = side === "buy" ? -txCashAmount(tx) : txCashAmount(tx);
     if (side === "buy") {
       h.cost += qty * price + fee;
       h.shares += qty;
-      h.tx.push({ t: "buy", qty: qty, price: price, fee: fee, date: d.date || todayISO(), amount: -(qty * price + fee) });
       if (!h.price) h.price = price;
     } else {
-      if (qty > h.shares + 1e-9) { toast("卖出份额不能超过持仓 " + fmtNum(h.shares, 4)); return false; }
+      if (qty > h.shares + 1e-9) { toast("卖出" + unit + "数不能超过持仓 " + fmtNum(h.shares, 4)); return false; }
       const cps = h.shares > 0 ? h.cost / h.shares : 0;
       const costOut = cps * qty;
-      const proceeds = qty * price - fee;
-      /* 万份收益折成的份额已经在持有份额里，按平均成本法自然结转：
-         卖出金额 − 平均成本 = 涨跌 + 这段时间累计折进来的收益，不需要再单独加一遍 */
-      h.realized = num(h.realized) + (proceeds - costOut);
+      /* 万份收益折成的份额已经在持有份额里，按平均成本法自然结转 */
+      h.realized = num(h.realized) + ((qty * price - fee) - costOut);
       h.cost = Math.max(0, h.cost - costOut);
       h.shares = Math.max(0, h.shares - qty);
-      h.tx.push({ t: "sell", qty: qty, price: price, fee: fee, date: d.date || todayISO(), amount: proceeds });
       if (h.shares < 1e-9) { h.shares = 0; h.cost = 0; h.mmfAccrued = 0; h.mmfLastDate = ""; }
+    }
+    const log = bookTradeCash(h, tx);
+    tx.cashId = log.id;
+    h.tx.push(tx);
+    touchRec(h);
+    commit();
+    toast(side === "buy" ? "已记录买入并扣款" : "已记录卖出并到账");
+  }, side === "buy" ? "确认买入" : "确认卖出");
+}
+/* 流水：列表 → 改 / 删（改金额、日期、账户都会同步那条收支记录） */
+function openTxList(hid) {
+  const h = state.holdings.find(x => x.id === hid);
+  if (!h) { toast("这条持仓已经不在了"); return; }
+  const unit = HOLD_UNIT[holdKindOf(h.kind)];
+  const rows = (h.tx || []).slice().sort(function (x, y) {
+    return x.date < y.date ? 1 : (x.date > y.date ? -1 : 0);
+  });
+  let buy = 0, sell = 0;
+  rows.forEach(function (t) { if (t.t === "sell") sell += txCashAmount(t); else buy += txCashAmount(t); });
+  const body =
+    '<div class="stats" style="margin-bottom:12px">' +
+      statRow("买入合计", money(buy)) + statRow("卖出合计", money(sell)) +
+    "</div>" +
+    (rows.length ? '<div class="dl-list">' + rows.map(function (t) {
+      return '<div class="dl-row"><div class="dl-main"><b>' + (t.t === "sell" ? "卖出 " : "买入 ") +
+        fmtNum(t.qty, 4) + unit + " @ " + num(t.price).toFixed(4) + "</b><small>" + esc(t.date || "—") + " · " +
+        cashAccountLabel(t.account || "bank") + " · " + (t.t === "sell" ? "到账 " : "支出 ") + money(txCashAmount(t)) +
+        (num(t.fee) > 0 ? " · 费 " + money(t.fee) : "") + (t.note ? " · " + esc(t.note) : "") + "</small></div>" +
+        '<button type="button" class="mini" data-tx="edit:' + esc(t.id) + '" data-id="' + esc(h.id) + '">改</button>' +
+        '<button type="button" class="mini danger" data-tx="del:' + esc(t.id) + '" data-id="' + esc(h.id) + '">删</button></div>';
+    }).join("") + "</div>"
+      : '<div class="empty" style="padding:14px"><b>还没有买卖流水</b>回列表点「买入」或「卖出」记一笔</div>') +
+    '<p class="hint" style="margin-top:10px">点「改」能更正数量、成交价、手续费、日期和结算账户；' +
+    "改完持仓的份额、成本、已实现盈亏和那条收支记录会一起重算，不会对不上。</p>";
+  Sheet.open("买卖流水 · " + esc(h.name || h.code), body, function () { return true; }, "关闭");
+}
+/* 流水 id 本身全局唯一：万一拿不到持仓 id，就按流水 id 反查一遍，
+   不要因为一个空 id 就报「流水不存在」 */
+function findTxRecord(hid, txId) {
+  const one = function (h) {
+    const t = (h.tx || []).filter(function (x) { return x.id === txId; })[0];
+    return t ? { h: h, tx: t } : null;
+  };
+  const direct = state.holdings.filter(function (x) { return x.id === hid; })[0];
+  if (direct && one(direct)) return one(direct);
+  for (let i = 0; i < state.holdings.length; i++) {
+    const r = one(state.holdings[i]);
+    if (r) return r;
+  }
+  return null;
+}
+function openTxForm(hid, txId) {
+  const hit = findTxRecord(hid, txId);
+  if (!hit) { toast("这笔流水已经不在了"); return; }
+  const h = hit.h, tx = hit.tx;
+  const unit = HOLD_UNIT[holdKindOf(h.kind)];
+  const body =
+    field("方向", '<div class="static">' + (tx.t === "sell" ? "卖出" : "买入") + " · " + esc(h.name || h.code) + "</div>") +
+    '<div class="field-row">' +
+      field("数量（" + unit + "）", '<input name="qty" type="text" inputmode="decimal" required value="' + num(tx.qty) + '">') +
+      field("成交价（元/" + unit + "）", '<input name="price" type="text" inputmode="decimal" required value="' + num(tx.price) + '">') +
+    "</div>" +
+    '<div class="field-row">' +
+      field("手续费（元）", '<input name="fee" type="text" inputmode="decimal" value="' + num(tx.fee) + '">') +
+      field("成交日期", '<input name="date" type="date" value="' + esc(tx.date || todayISO()) + '">') +
+    "</div>" +
+    field("结算账户", '<select name="account">' + tradeAccountOptions(tx.account || "") + "</select>") +
+    field("备注", '<input name="note" maxlength="30" placeholder="选填，如 更正成交价" value="' + esc(tx.note || "") + '">') +
+    '<p class="hint">改数量会同时改持仓份额；改价格/手续费会调整持仓成本和已实现盈亏。</p>' +
+    '<p class="err" hidden></p>';
+  Sheet.open("更正流水", body, function (v) {
+    const qty = num(v.qty), price = num(v.price), fee = Math.max(0, num(v.fee));
+    if (!(qty > 0)) { toast("数量需大于 0"); return false; }
+    if (!(price > 0)) { toast("成交价需大于 0"); return false; }
+    const date = isDateStr(v.date) ? v.date : (tx.date || todayISO());
+    const oldAcct = tx.account || "", newAcct = String(v.account || oldAcct);
+    const oldSigned = txCashSigned(tx);
+    const oldAmount = txCashAmount(tx);
+    /* 先按新数字算持仓账 */
+    if (tx.t === "buy") {
+      h.cost = Math.max(0, cash2(num(h.cost) + ((qty * price + fee) - oldAmount)));
+      h.shares = Math.max(0, num(h.shares) + (qty - num(tx.qty)));
+    } else {
+      const cps = num(h.shares) > 0 ? num(h.cost) / num(h.shares) : 0;
+      const costOld = cps * num(tx.qty), costNew = cps * qty;
+      h.realized = num(h.realized) + ((qty * price - fee) - costNew) - ((num(tx.qty) * num(tx.price) - num(tx.fee)) - costOld);
+      h.cost = Math.max(0, num(h.cost) - costNew + costOld);
+      h.shares = Math.max(0, num(h.shares) + (num(tx.qty) - qty));
+      if (h.shares < 1e-9) { h.shares = 0; h.cost = 0; }
+    }
+    tx.qty = qty; tx.price = price; tx.fee = fee; tx.date = date; tx.account = newAcct; tx.note = String(v.note || "").trim();
+    const newSigned = txCashSigned(tx);
+    tx.amount = tx.t === "buy" ? -txCashAmount(tx) : txCashAmount(tx);
+    /* 再改钱：账户换了就退旧记新 */
+    if (oldAcct !== newAcct) {
+      cashDelta(-oldSigned, oldAcct);
+      cashDelta(newSigned, newAcct);
+    } else {
+      cashDelta(newSigned - oldSigned, newAcct);
+    }
+    const log = (state.cashLog || []).filter(function (x) { return x.id === tx.cashId || (x.ref && x.ref.txId === tx.id); })[0];
+    if (log) {
+      log.amount = txCashAmount(tx); log.account = cashAccountKey(newAcct); log.date = date;
+      log.note = (h.name || h.code || "持仓") + (tx.t === "sell" ? " 卖出" : " 买入");
+      log.updatedAt = Date.now();
     }
     touchRec(h);
     commit();
-    toast(side === "buy" ? "已记录买入" : "已记录卖出");
-  }, side === "buy" ? "确认买入" : "确认卖出");
+    toast("已更正，收支记录同步更新");
+    setTimeout(function () { openTxList(h.id); }, 300);
+    return true;
+  }, "保存");
+}
+function deleteTx(hid, txId) {
+  const hit = findTxRecord(hid, txId);
+  if (!hit) { toast("这笔流水已经不在了"); return; }
+  const h = hit.h, tx = hit.tx;
+  Sheet.open("删除流水", '<p class="hint">确认删除 ' + esc(tx.date || "") + " 的" + (tx.t === "sell" ? "卖出 " : "买入 ") +
+    fmtNum(tx.qty, 4) + "？持仓份额、成本和那条收支记录会一起退回。</p>", function () {
+      const signed = txCashSigned(tx);
+      cashDelta(-signed, tx.account || "bank");
+      state.cashLog = (state.cashLog || []).filter(function (x) {
+        return !(x.id === tx.cashId || (x.ref && x.ref.txId === tx.id));
+      });
+      if (tx.t === "buy") {
+        h.cost = Math.max(0, cash2(num(h.cost) - (num(tx.qty) * num(tx.price) + num(tx.fee))));
+        h.shares = Math.max(0, num(h.shares) - num(tx.qty));
+      } else {
+        const cps = num(h.shares) > 0 ? num(h.cost) / num(h.shares) : 0;
+        h.cost = Math.max(0, num(h.cost) + cps * num(tx.qty));
+        h.shares = Math.max(0, num(h.shares) + num(tx.qty));
+        h.realized = num(h.realized) - (num(tx.qty) * num(tx.price) - num(tx.fee) - cps * num(tx.qty));
+      }
+      h.tx = (h.tx || []).filter(function (t) { return t.id !== txId; });
+      touchRec(h);
+      commit();
+      toast("已删除并退回");
+      return true;
+    }, "删除");
 }
 
 /* ============ 改价 ============ */
@@ -3194,10 +3569,25 @@ function openDepositForm(id) {
    利息不在这里动 —— 已收利息单独作为「利息」计入总资产，免得同一笔钱记两遍。 */
 /* 指定了账户就整笔走那个账户（可以为负，界面上看得见、随时能在弹窗里调平）；
    没指定才走瀑布：扣款按 现金 → 银行卡 → 微信 → 支付宝，收款一律进「现金存款」 */
-function cashAccountOptions(sel) {
-  const list = [["", "自动（现金 → 银行卡 → 微信 → 支付宝）"]].concat(CASH_KEYS.map(function (k) { return [k, CASH_LABEL[k]]; }));
+/* 账户下拉：四个大账户 + 每张银行卡（值 bank:<id>，cashDelta 认识） */
+function cashAccountChoices(withAuto) {
+  const list = withAuto === false ? [] : [["", "自动（现金 → 银行卡 → 微信 → 支付宝）"]];
+  CASH_KEYS.forEach(function (k) { list.push([k, CASH_LABEL[k]]); });
+  (Array.isArray(state.bankCards) ? state.bankCards : []).forEach(function (c) {
+    list.push(["bank:" + c.id, "银行卡 · " + c.name]);
+  });
+  return list;
+}
+function isCashAccountValue(v) {
+  const t = String(v == null ? "" : v);
+  return CASH_KEYS.indexOf(t) >= 0 || /^bank:[A-Za-z0-9_-]+$/.test(t);
+}
+function cashAccountOptions(sel, withAuto) {
+  const cur = String(sel || "");
+  const list = cashAccountChoices(withAuto);
+  if (cur && !list.some(function (x) { return x[0] === cur; })) list.push([cur, cashAccountLabel(cur)]);
   return list.map(function (x) {
-    return '<option value="' + esc(x[0]) + '"' + (x[0] === (sel || "") ? " selected" : "") + ">" + esc(x[1]) + "</option>";
+    return '<option value="' + esc(x[0]) + '"' + (x[0] === cur ? " selected" : "") + ">" + esc(x[1]) + "</option>";
   }).join("");
 }
 function cashDelta(delta, acct) {
@@ -3207,8 +3597,27 @@ function cashDelta(delta, acct) {
     state.cashParts = normCashParts(null, state.cash);
   }
   const p = state.cashParts;
+  const rawAcct = String(acct || "");
+  const cardId = rawAcct.indexOf("bank:") === 0 ? rawAcct.slice(5) : "";
   const key = CASH_KEYS.indexOf(acct) >= 0 ? acct : "";
-  if (key) {
+  if (cardId) {
+    /* 走具体某张卡：只动这张卡，银行卡合计跟着重算 */
+    const card = bankCardById(cardId) || ensureBankCard();
+    card.amount = cash2(num(card.amount) + d);
+    p.bank = bankCardsSum();
+  } else if (key === "bank") {
+    /* 只说了「银行卡」：按卡片顺序分摊，先第一张、不够再下一张，都不够就让第一张变负 */
+    const cards = (Array.isArray(state.bankCards) && state.bankCards.length) ? state.bankCards : [ensureBankCard()];
+    let left = d;
+    cards.forEach(function (c) {
+      if (Math.abs(left) < 0.005) return;
+      if (left > 0) { c.amount = cash2(num(c.amount) + left); left = 0; return; }
+      const take = Math.min(Math.max(0, num(c.amount)), -left);
+      if (take > 0) { c.amount = cash2(num(c.amount) - take); left = cash2(left + take); }
+    });
+    if (left < -0.005) cards[0].amount = cash2(num(cards[0].amount) + left);
+    p.bank = bankCardsSum();
+  } else if (key) {
     p[key] = cash2(num(p[key]) + d);
   } else if (d > 0) {
     p.cash = cash2(num(p.cash) + d);             /* 收回来的钱先进「现金存款」 */
@@ -3253,9 +3662,16 @@ function cashLogRows(limit) {
 }
 function openCashForm() {
   const p = normCashParts(state.cashParts, state.cash);
+  const cards = Array.isArray(state.bankCards) ? state.bankCards : [];
   const row = function (k) {
-    return '<div class="cash-row acct readonly"><label>' + CASH_LABEL[k] + "</label>" +
-      '<div class="cash-in"><span>¥</span><b class="num' + (num(p[k]) < 0 ? " down" : "") + '">' + money(p[k]) + "</b></div></div>";
+    const isBank = k === "bank";
+    return '<div class="cash-row acct readonly"><label>' + CASH_LABEL[k] +
+      (isBank && cards.length > 1 ? '<i class="hint" style="font-style:normal"> ' + cards.length + " 张</i>" : "") + "</label>" +
+      '<div class="cash-in"><span>¥</span><b class="num' + (num(p[k]) < 0 ? " down" : "") + '">' + money(p[k]) + "</b>" +
+      (isBank ? '<button type="button" class="mini" data-bank="manage">管理</button>' : "") + "</div></div>" +
+      (isBank && cards.length ? '<div class="bank-inline">' + cards.slice(0, 3).map(function (c) {
+        return "<span>" + esc(c.name) + " <b>" + money(c.amount) + "</b></span>";
+      }).join("") + (cards.length > 3 ? "<span>等 " + cards.length + " 张</span>" : "") + "</div>" : "");
   };
   const body =
     '<div class="cash-total"><span>现金合计</span><b class="num" id="cashSum">' + money(cashSum(p)) + "</b></div>" +
@@ -3270,15 +3686,81 @@ function openCashForm() {
     cashLogRows();
   Sheet.open("现金 · v" + APP_VERSION, body, function () { return true; }, "关闭");
 }
+/* 银行卡明细：这里的金额就是「银行卡存款」的四个格子之一，改这里等于改那一格 */
+function openBankCards() {
+  const cards = Array.isArray(state.bankCards) ? state.bankCards : [];
+  const sum = bankCardsSum();
+  const rows = cards.length
+    ? cards.map(function (c) {
+        return '<div class="bank-row" data-bank-row="' + esc(c.id) + '">' +
+          '<div class="bank-main"><b>' + esc(c.name) + "</b>" +
+          (c.note ? "<small>" + esc(c.note) + "</small>" : "") + "</div>" +
+          '<b class="num">' + money(c.amount) + "</b>" +
+          '<button type="button" class="mini" data-bank="edit:' + esc(c.id) + '">改</button>' +
+          '<button type="button" class="mini danger" data-bank="del:' + esc(c.id) + '">删</button></div>';
+      }).join("")
+    : '<div class="empty" style="padding:14px"><b>还没有银行卡</b>点下面「＋ 添加银行卡」，第一张会叫「主银行卡」</div>';
+  const body =
+    '<div class="cash-total"><span>银行卡合计</span><b class="num">' + money(sum) + "</b></div>" +
+    '<div class="bank-list">' + rows + "</div>" +
+    '<button type="button" class="btn small" data-bank="add" style="width:100%;margin-top:10px">＋ 添加银行卡</button>' +
+    '<p class="hint">这里改的是每张卡的余额，合计会自动等于「银行卡存款」那一格；' +
+    "基金/股票的买卖如果指定了某张卡，也会记到这张卡的余额上。</p>";
+  Sheet.open("银行卡 · v" + APP_VERSION, body, function () { return true; }, "关闭", function () { openCashForm(); });
+}
+function openBankCardForm(id) {
+  const card = id ? bankCardById(id) : null;
+  const body =
+    field("卡名", '<input name="name" maxlength="20" placeholder="如 招商银行 6225" value="' +
+      esc(card ? card.name : "") + '">') +
+    field("余额（元）", '<input name="amount" type="text" inputmode="decimal" placeholder="0" value="' +
+      (card ? String(card.amount) : "") + '">') +
+    field("备注", '<input name="note" maxlength="30" placeholder="选填" value="' + esc(card ? card.note : "") + '">') +
+    '<p class="hint">余额可以是负数（信用卡/透支），负数会从总资产里扣。</p>' +
+    '<p class="err" hidden></p>';
+  Sheet.open(card ? "编辑银行卡" : "添加银行卡", body, function (v) {
+    const name = String(v.name || "").trim();
+    const t = numText(v.amount);
+    if (!name) { toast("请填卡名"); return false; }
+    if (!t.ok) { toast("余额填的不是数字"); return false; }
+    const amount = cash2(t.empty ? 0 : t.value);
+    if (card) {
+      const delta = cash2(amount - num(card.amount));
+      card.name = name; card.note = String(v.note || "").trim();
+      if (Math.abs(delta) >= 0.005) cashDelta(delta, "bank:" + card.id);
+      else card.amount = amount;
+    } else {
+      if (!Array.isArray(state.bankCards)) state.bankCards = [];
+      const nc = { id: uid(), name: name, amount: 0, note: String(v.note || "").trim() };
+      state.bankCards.push(nc);
+      if (Math.abs(amount) >= 0.005) cashDelta(amount, "bank:" + nc.id);
+    }
+    commit();
+    toast(card ? "银行卡已更新" : "银行卡已添加");
+    setTimeout(openBankCards, 300);
+    return true;
+  }, card ? "保存" : "添加", function () { openBankCards(); });
+}
+function deleteBankCard(id) {
+  const card = bankCardById(id);
+  if (!card) { toast("这张卡已经不在了"); return; }
+  Sheet.open("删除银行卡", '<p class="hint">确认删除「' + esc(card.name) + "」？余额 " + money(card.amount) +
+    " 会从「银行卡存款」里一起减掉，总资产会变。</p>", function () {
+      if (Math.abs(num(card.amount)) >= 0.005) cashDelta(-num(card.amount), "bank:" + id);
+      state.bankCards = (state.bankCards || []).filter(function (c) { return c.id !== id; });
+      commit();
+      toast("已删除");
+      setTimeout(openBankCards, 300);
+      return true;
+    }, "删除");
+}
 function openCashEntryForm() {
   const body =
     field("类型", '<div class="seg" id="cashKindSeg">' +
       '<label><input type="radio" name="kind" value="in" checked><span>收入</span></label>' +
       '<label><input type="radio" name="kind" value="out"><span>支出</span></label></div>') +
     field("金额（元）", '<input name="amount" type="text" inputmode="decimal" required placeholder="0">') +
-    field("记入账户", '<select name="account">' + CASH_KEYS.map(function (k) {
-      return '<option value="' + k + '">' + CASH_LABEL[k] + "</option>";
-    }).join("") + "</select>") +
+    field("记入账户", '<select name="account">' + cashAccountOptions("", false) + "</select>") +
     field("日期", '<input name="date" type="date" required value="' + todayISO() + '">') +
     field("备注", '<input name="note" maxlength="40" placeholder="选填，如 工资 / 房租">') +
     '<p class="hint">收入加到这个账户，支出从它扣；支出可以把账户扣成负数（说明透支了）。删掉这笔记录，金额会原样退回去。</p>';
@@ -3288,21 +3770,23 @@ function openCashEntryForm() {
     if (t.empty || t.value <= 0) { toast("金额需大于 0"); return false; }
     const date = String(v.date || "").trim();
     if (!isDateStr(date)) { toast("日期格式不对"); return false; }
-    if (CASH_KEYS.indexOf(v.account) < 0) { toast("请选择账户"); return false; }
+    if (!isCashAccountValue(v.account)) { toast("请选择账户"); return false; }
     const kind = v.kind === "out" ? "out" : "in";
     if (!Array.isArray(state.cashLog)) state.cashLog = [];
     state.cashLog.push({ id: uid(), kind: kind, amount: t.value, account: v.account, date: date,
       note: String(v.note || "").trim(), updatedAt: Date.now() });
     cashDelta(kind === "in" ? t.value : -t.value, v.account);
     commit();
-    toast((kind === "in" ? "已记收入 " : "已记支出 ") + money(t.value) + " · " + CASH_LABEL[v.account]);
+    toast((kind === "in" ? "已记收入 " : "已记支出 ") + money(t.value) + " · " + cashAccountLabel(v.account));
     setTimeout(openCashForm, 300);      /* 存完回到上层，接着记下一笔 */
     return true;
-  }, "保存");
+  }, "保存", function () { openCashForm(); });   /* 取消 / 叉 → 只回现金弹窗 */
 }
 function deleteCashLog(id) {
   const rec = (state.cashLog || []).filter(function (x) { return x.id === id; })[0];
   if (!rec) { toast("这条记录已经不在了"); return; }
+  /* 买卖/追投自动生成的记录不能在这里删：只能回源头改或删，否则账目对不上 */
+  if (rec.locked) { toast("这条是买卖自动记的，回持仓里改流水"); return; }
   Sheet.open("删除这笔", '<p class="hint">确认删除 ' + esc(rec.date) + " 的" +
     (rec.kind === "in" ? "收入 " : "支出 ") + money(rec.amount) + "？账户金额会跟着退回去。</p>", function () {
       cashDelta(rec.kind === "in" ? -rec.amount : rec.amount, rec.account);
@@ -3544,6 +4028,9 @@ function prevTradingDay(base) {
 function expectedDataDate(h) {
   const d = bjDate();
   const mins = d.getHours() * 60 + d.getMinutes();
+  /* 黄金是上金所，交易日历和 A 股不一样（还有夜盘）：拿 A 股日历判断会一直认为「已是最新」，
+     自动刷新永远不触发。这里按自然日算，昨天及更早就算过期，一天最多自动拉一次 */
+  if (h.kind === "gold") return fmtDate(d);
   if (isTradingDay(d)) {
     if (h.kind === "stock" && mins >= 570) return fmtDate(d);
     if (h.kind === "fund" && mins >= 1140) return fmtDate(d);
@@ -3791,9 +4278,103 @@ async function fetchStockQuote(code) {
 /* ============ 刷新 ============ */
 const updating = {};
 /* 只取数、不落地；返回待写入的字段 */
+/* 黄金：上海黄金交易所的合约在东方财富是 118 市场（AU9999 等），
+   6 位纯数字当 ETF 走股票那条路（如 518880 黄金 ETF） */
+function goldSecidOf(code) {
+  const raw = String(code == null ? "" : code).trim().toUpperCase();
+  if (!raw) return "118.AU9999";
+  if (/^(118|113)\./.test(raw)) return raw;
+  return "118." + raw;
+}
+/* 金价三源兜底：
+   ① 东方财富实时（上金所 AU9999 精确价，JSONP，不走 CORS）
+   ② 东方财富日 K 最后收盘
+   ③ 国际金价（api.gold-api.com，CORS 开放）按美元汇率折成 元/克
+   全部失败就把每个源的原因都带出来，绝不静默留旧价 */
+const GOLD_OZ_GRAM = 31.1034768;
+async function usdCnyRate() {
+  const cached = num((state.fx && state.fx.rates || {}).USD);
+  if (cached > 0) return cached;
+  const r = await fetch("https://api.frankfurter.dev/v1/latest?from=CNY&to=USD", { cache: "no-store" });
+  if (!r.ok) throw new Error("汇率 HTTP " + r.status);
+  const d = await r.json();
+  const per = num(d && d.rates && d.rates.USD);
+  if (!(per > 0)) throw new Error("汇率返回无效");
+  const v = Math.round(1 / per * 10000) / 10000;
+  state.fx = Object.assign({ at: 0, base: "CNY", rates: {} }, state.fx, {
+    rates: Object.assign({}, (state.fx && state.fx.rates) || {}, { USD: v })
+  });
+  return v;
+}
+async function fetchGoldQuote(code, retried) {
+  const secid = goldSecidOf(code);
+  const errs = [];
+  /* ① 上金所实时 */
+  try {
+    const d = await jsonp("https://push2.eastmoney.com/api/qt/stock/get?secid=" + encodeURIComponent(secid) +
+      "&fields=f43,f57,f58,f59,f60,f169,f170,f86", 12000);
+    const x = d && d.data;
+    if (x && x.f43 > 0) {
+      const dec = isFinite(x.f59) ? Number(x.f59) : 2;
+      const ts = isFinite(x.f86) && Number(x.f86) > 0 ? new Date(Number(x.f86) * 1000) : null;
+      return {
+        price: x.f43 / Math.pow(10, dec),
+        name: x.f58 ? String(x.f58) : "",
+        prevPrice: isFinite(x.f60) && Number(x.f60) > 0 ? Number(x.f60) / Math.pow(10, dec) : null,
+        pct: isFinite(x.f170) ? Number(x.f170) / 100 : null,
+        date: ts ? bjDayOf(ts) : "",
+        src: "上金所"
+      };
+    }
+    errs.push("实时无数据");
+  } catch (e) { errs.push("实时 " + (e && e.message ? e.message : "失败")); }
+  /* ② 日 K 兜底 */
+  try {
+    const d2 = await jsonp("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + encodeURIComponent(secid) +
+      "&klt=101&fqt=0&lmt=2&end=20500101&fields1=f1,f2,f3&fields2=f51,f53", 10000);
+    const kl = (d2 && d2.data && d2.data.klines) || [];
+    if (kl.length) {
+      const last = String(kl[kl.length - 1]).split(",");
+      const prev = kl.length > 1 ? String(kl[kl.length - 2]).split(",") : null;
+      const price = Number(last[1]);
+      if (price > 0) {
+        return { price: price, name: (d2.data && d2.data.name) || "", prevPrice: prev ? Number(prev[1]) || null : null,
+          pct: null, date: last[0] || "", src: "上金所·日K" };
+      }
+    }
+    errs.push("日K无数据");
+  } catch (e2) { errs.push("日K " + (e2 && e2.message ? e2.message : "失败")); }
+  /* ③ 国际金价（美元/盎司）折成 元/克 */
+  try {
+    const r = await fetch("https://api.gold-api.com/price/XAU", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const d3 = await r.json();
+    const usdOz = num(d3 && d3.price);
+    if (!(usdOz > 0)) throw new Error("返回无效");
+    const cny = await usdCnyRate();
+    const price = Math.round(usdOz * cny / GOLD_OZ_GRAM * 100) / 100;
+    if (!(price > 0)) throw new Error("折算后为 0");
+    return { price: price, name: "国际金价", prevPrice: null, pct: null, date: todayISO(), src: "国际折算" };
+  } catch (e3) { errs.push("国际 " + (e3 && e3.message ? e3.message : "失败")); }
+  /* 超时/断网这类一次性失败：整条链重试一次（手机第一次请求要等 DNS/TLS） */
+  if (!retried && /超时|网络|timeout|Failed to fetch|NetworkError/i.test(errs.join("|"))) {
+    await new Promise(function (r) { setTimeout(r, 900); });
+    return fetchGoldQuote(code, true);
+  }
+  throw new Error("取不到金价（" + errs.join("；") + "）");
+}
+
 async function quoteFor(h) {
-  /* 黄金没有公开的自动报价源，只能手动改价：宁可明确报错，也别把它当成股票去请求一个不存在的代码 */
-  if (h.kind === "gold") throw new Error("黄金没有自动行情，点「改价」手动录入");
+  if (h.kind === "gold") {
+    /* 6 位纯数字当 ETF（如 518880 黄金 ETF），走股票那条路；其余按上金所合约 */
+    if (/^\d{6}$/.test(String(h.code || "").trim())) {
+      const q = await fetchStockQuote(h.code);
+      return { price: q.price, priceDate: q.date || todayISO(), name: q.name || "", prevPrice: q.prevPrice, pct: q.pct };
+    }
+    const q = await fetchGoldQuote(h.code);
+    /* src 一路带到卡片上：上金所 / 上金所·日K / 国际折算 */
+    return { price: q.price, priceDate: q.date || todayISO(), name: q.name || "", prevPrice: q.prevPrice, pct: q.pct, src: q.src };
+  }
   if (h.kind === "fund") {
     const q = await fetchFundQuote(h.code);
     const isMoney = q.ftype ? q.isMoney : !!h.mmf;
@@ -3817,6 +4398,10 @@ function applyQuote(h, p) {
   h.price = p.price;
   if (p.priceDate) h.priceDate = p.priceDate;
   if (p.mmf !== undefined) h.mmf = !!p.mmf;
+  /* 国际金价折算不是上金所报价，差 1~2% 很正常：卡片上要说清楚 */
+  h.quoteNote = p.src === "国际折算"
+    ? "上金所取不到，用国际金价（美元/盎司）× 美元汇率 ÷ 31.1035 折算，和上金所报价差 1~2%，可点「改价」手填"
+    : "";
   if (p.moneyPer10k !== undefined) h.moneyPer10k = p.moneyPer10k;
   if (!h.name && p.name) h.name = p.name;
   /* 昨净值必须和这次报价同源：拿不到就清空，别留着上一次的旧值去算日涨跌 */
@@ -3854,13 +4439,13 @@ function applyQuote(h, p) {
   }
   h.source = "auto";
   h.failMsg = "";
+  h.quoteSrc = p.src || "";
   h.priceAt = Date.now();
   return true;
 }
 async function refreshHolding(id, silent) {
   const h = state.holdings.find(x => x.id === id);
   if (!h) return false;
-  if (h.kind === "gold") { if (!silent) toast("黄金没有自动行情，点「改价」手动录入"); return false; }
   if (updating[id]) return false;
   updating[id] = true;
   try {
@@ -3884,9 +4469,8 @@ async function refreshHolding(id, silent) {
 let refreshing = false;
 async function refreshAll(silent) {
   if (refreshing) return { ok: 0, fail: 0, busy: true };
-  /* 黄金只能手动改价，不参加自动刷新，也不该因此被记成「失败」 */
-  const list = state.holdings.filter(function (h) { return h.kind !== "gold"; });
-  if (!list.length) { if (!silent) toast("还没有可以自动更新的持仓"); return { ok: 0, fail: 0, empty: true }; }
+  const list = state.holdings.slice();
+  if (!list.length) { if (!silent) toast("还没有持仓可更新"); return { ok: 0, fail: 0, empty: true }; }
   if (navigator.onLine === false) {
     list.forEach(function (h) { if (h.source !== "manual") { h.source = "fail"; h.failMsg = "当前离线"; } });
     save(); render(); renderRefreshStatus();
@@ -3938,9 +4522,97 @@ function investLastDiv(it) {
   const ds = (it.dividends || []).map(function (x) { return x.date; }).sort();
   return ds.length ? ds[ds.length - 1] : (it.date || "");
 }
+/* 追投：首笔 + 每笔追加，都是原币种金额 */
+function investAddonSum(it) {
+  return (it.addons || []).reduce(function (a, x) { return a + num(x.amount); }, 0);
+}
+function investPrincipal(it) { return num(it.amount) + investAddonSum(it); }
+/* 汇率：1 单位外币 = ? 元。每笔追投/分红自己记一份，没记就回落到项目上的 */
+function fxRateFor(currency, own) {
+  if (!currency || currency === "CNY") return 1;
+  const o = num(own);
+  if (o > 0) return o;
+  return num((state.fx && state.fx.rates || {})[currency]) || 1;
+}
+function fxRateOf(it) { return fxRateFor(it && it.currency, it && it.fxRate); }
+function investAddonCNYSum(it) {
+  const base = (it && it.currency) || "CNY";
+  return cash2(((it && it.addons) || []).reduce(function (a, x) {
+    /* 没单独记汇率就跟项目走：别拿「今天的汇率表」去算历史那笔 */
+    return a + num(x.amount) * fxRateFor(x.currency || base, x.fxRate || (it && it.fxRate));
+  }, 0));
+}
+function investPrincipalCNY(it) { return cash2(num(it.amount) * fxRateOf(it) + investAddonCNYSum(it)); }
+function haveForeignInvest() {
+  return live(state.investments).some(function (x) { return x.currency && x.currency !== "CNY"; });
+}
+function investDivCNY(it) {
+  const base = (it && it.currency) || "CNY";
+  return cash2(((it && it.dividends) || []).reduce(function (a, x) {
+    return a + num(x.amount) * fxRateFor(x.currency || base, x.fxRate || (it && it.fxRate));
+  }, 0));
+}
 function investROI(it) {
-  const amt = num(it.amount);
-  return amt > 0 ? investDivSum(it) / amt * 100 : 0;
+  const amt = investPrincipalCNY(it);
+  return amt > 0 ? investDivCNY(it) / amt * 100 : 0;
+}
+/* 人民币汇率：1 单位外币 = ? 元。12 小时内不重复请求 */
+async function fetchFxRates(force) {
+  const fx = (state.fx && typeof state.fx === "object") ? state.fx : (state.fx = { at: 0, base: "CNY", rates: {} });
+  const fresh = num(fx.at) > 0 && Date.now() - num(fx.at) < 12 * 3600 * 1000;
+  if (!force && fresh && Object.keys(fx.rates || {}).length) return fx;
+  const need = FX_CODES.filter(function (c) { return c !== "CNY"; });
+  let lastErr = null;
+  const out = {};
+  /* 两个都免密钥：欧洲央行先给 15 种，缺的（台币/澳门元/迪拉姆/卢布）用 er-api 补 */
+  const urls = [
+    "https://api.frankfurter.dev/v1/latest?from=CNY&to=" + FX_ECB.join(","),
+    "https://open.er-api.com/v6/latest/CNY"
+  ];
+  for (let i = 0; i < urls.length; i++) {
+    try {
+      const r = await fetch(urls[i], { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const d = await r.json();
+      const rates = (d && d.rates) || null;
+      if (!rates) throw new Error("返回格式不对");
+      need.forEach(function (c) {
+        if (out[c] > 0) return;                        /* 前一个源已经给了 */
+        const per = num(rates[c]);
+        if (per > 0) out[c] = Math.round(1 / per * 10000) / 10000;
+      });
+    } catch (e) { lastErr = e; }
+  }
+  if (!Object.keys(out).length) throw new Error("汇率获取失败：" + (lastErr && lastErr.message ? lastErr.message : "网络不可达"));
+  state.fx = { at: Date.now(), base: "CNY", rates: out };
+  save();
+  return state.fx;
+}
+/* 图片压到长边 720、JPEG 0.72：一张 2MB 的照片变成 ~60KB，localStorage 放得下 */
+function compressImage(file, maxSide, quality) {
+  return new Promise(function (resolve, reject) {
+    const fr = new FileReader();
+    fr.onerror = function () { reject(new Error("读不到这个文件")); };
+    fr.onload = function () {
+      const img = new Image();
+      img.onerror = function () { reject(new Error("不是有效的图片")); };
+      img.onload = function () {
+        const w = img.naturalWidth || img.width || 0, h = img.naturalHeight || img.height || 0;
+        if (!w || !h) { reject(new Error("图片尺寸异常")); return; }
+        const scale = Math.min(1, (maxSide || 720) / Math.max(w, h));
+        const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+        const cv = document.createElement("canvas");
+        cv.width = cw; cv.height = ch;
+        const ctx = cv.getContext && cv.getContext("2d");
+        if (!ctx) { resolve(String(fr.result)); return; }
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cw, ch);
+        ctx.drawImage(img, 0, 0, cw, ch);
+        try { resolve(cv.toDataURL("image/jpeg", quality || 0.72)); } catch (e) { resolve(String(fr.result)); }
+      };
+      img.src = String(fr.result);
+    };
+    fr.readAsDataURL(file);
+  });
 }
 /* 超过 365 天没分红的项目：从没分过按投资日期算 */
 function investStaleList() {
@@ -3952,8 +4624,9 @@ function investStaleList() {
 }
 function investmentTotals() {
   const list = live(state.investments);
-  const amount = list.reduce(function (a, x) { return a + num(x.amount); }, 0);
-  const div = list.reduce(function (a, x) { return a + investDivSum(x); }, 0);
+  /* 合计统一折成人民币：外币项目按各自记下的汇率折算，人民币项目汇率恒为 1 */
+  const amount = list.reduce(function (a, x) { return a + investPrincipalCNY(x); }, 0);
+  const div = list.reduce(function (a, x) { return a + investDivCNY(x); }, 0);
   return {
     count: list.length,
     amount: amount,
@@ -3965,35 +4638,399 @@ function investmentTotals() {
 function findInvest(id) {
   return (state.investments || []).filter(function (x) { return x.id === id; })[0] || null;
 }
+function fxOptions(sel) {
+  const cur = FX_CODES.indexOf(sel) >= 0 ? sel : "CNY";
+  return FX_CODES.map(function (c) {
+    return '<option value="' + c + '"' + (c === cur ? " selected" : "") + ">" + FX_LABEL[c] + "（" + c + "）</option>";
+  }).join("");
+}
+/* 币种换了就把已知汇率填进去，人民币锁成 1（三处表单共用） */
+function bindFxFields(ov) {
+  const sel = ov.querySelector('select[name="currency"]'), rateEl = ov.querySelector('input[name="fxRate"]');
+  const preview = ov.querySelector(".fx-preview"), fetchBtn = ov.querySelector("[data-fxfetch]");
+  if (!sel || !rateEl) return;
+  const say = function () {
+    if (!preview) return;
+    const c = sel.value;
+    if (c === "CNY") { preview.textContent = "人民币不用折算。"; return; }
+    const r = num(rateEl.value);
+    preview.textContent = r > 0
+      ? "按 1 " + c + " = " + r.toFixed(4) + " 元折算（可手改）。"
+      : "先点「取最新」或手填 1 " + c + " 等于多少元。";
+  };
+  /* reset=true 只在「换币种」时用：把该币种的缓存汇率填进去；
+     用户手改过的值（touched）不覆盖，编辑老记录也不覆盖 */
+  const paint = function (reset) {
+    const c = sel.value;
+    if (c === "CNY") { rateEl.value = "1"; rateEl.disabled = true; say(); return; }
+    rateEl.disabled = false;
+    const r = num((state.fx && state.fx.rates || {})[c]);
+    if (reset && r > 0 && !rateEl.dataset.touched) rateEl.value = r.toFixed(4);
+    say();
+  };
+  sel.addEventListener("change", function () { delete rateEl.dataset.touched; paint(true); });
+  rateEl.addEventListener("input", function () { rateEl.dataset.touched = "1"; say(); });
+  if (fetchBtn) fetchBtn.addEventListener("click", async function () {
+    fetchBtn.disabled = true;
+    const old = fetchBtn.textContent;
+    fetchBtn.textContent = "取…";
+    try {
+      const fx = await fetchFxRates(true);
+      const c = sel.value;
+      if (c === "CNY") { toast("人民币不用汇率"); return; }
+      const r = num(fx.rates[c]);
+      if (!(r > 0)) { toast("这个源没有 " + c + " 的牌价，请手填"); return; }
+      rateEl.value = r.toFixed(4);
+      delete rateEl.dataset.touched;
+      say();
+      toast("已填入 1 " + c + " = " + r.toFixed(4) + " 元");
+    } catch (e) {
+      toast(e && e.message ? e.message : "取汇率失败，可以手填");
+    } finally {
+      fetchBtn.disabled = false;
+      fetchBtn.textContent = old;
+    }
+  });
+  paint(false);
+}
 function openInvestmentForm(id) {
   const it = id ? findInvest(id) : null;
+  const cur = it && FX_CODES.indexOf(it.currency) >= 0 ? it.currency : "CNY";
+  const rate = it ? fxRateOf(it) : 1;
   const body =
     field("项目名称", '<input name="project" placeholder="如 朋友店铺入股" value="' + esc(it ? it.project : "") + '">') +
     '<div class="field-row">' +
       field("投资日期", '<input name="date" type="date" value="' + (it ? it.date : todayISO()) + '">') +
-      field("投资金额（元）", '<input name="amount" type="text" inputmode="decimal" value="' + (it ? it.amount : "") + '">') +
+      field("投资金额", '<input name="amount" type="text" inputmode="decimal" value="' + (it ? it.amount : "") + '">') +
     "</div>" +
+    field("币种", '<select name="currency">' + fxOptions(cur) + "</select>") +
+    field("人民币汇率（1 外币 = ? 元）", '<div class="field-row" style="gap:8px"><input name="fxRate" type="text" inputmode="decimal" value="' +
+      (cur === "CNY" ? "1" : rate.toFixed(4)) + '"' + (cur === "CNY" ? ' disabled' : "") + '>' +
+      '<button type="button" class="btn small" data-fxfetch="1" style="flex:none;white-space:nowrap">取最新</button></div>') +
     '<div class="field-row">' +
       field("联系人姓名", '<input name="contact" placeholder="选填" value="' + esc(it ? it.contact : "") + '">') +
       field("联系电话", '<input name="phone" type="text" inputmode="tel" placeholder="选填" value="' + esc(it ? it.phone : "") + '">') +
     "</div>" +
     field("备注", '<input name="note" placeholder="选填" value="' + esc(it ? it.note : "") + '">') +
+    '<p class="hint fx-preview">' + (cur === "CNY" ? "人民币项目不折算。" :
+      "按 1 " + cur + " = " + rate.toFixed(4) + " 元折算；汇率来自欧洲央行公开数据，12 小时内不重复请求，取不到就用手填的。") + "</p>" +
     '<p class="err" hidden></p>' +
-    '<p class="hint">这里只记投资本身；分红在列表里点「分红 → ＋ 记一笔分红」逐笔加，每笔带自己的日期和金额。</p>';
-  Sheet.open((it ? "编辑对外投资" : "新增对外投资") + " · v" + APP_VERSION, body, function (v) {
+    '<p class="hint">这里只记投资本身；分红、追投、照片都在列表里点对应按钮逐笔加。</p>';
+  const ov = Sheet.open((it ? "编辑对外投资" : "新增对外投资") + " · v" + APP_VERSION, body, function (v) {
     const amount = num(v.amount);
     if (!isFinite(amount) || amount <= 0) { toast("投资金额需大于 0"); return false; }
+    const c = FX_CODES.indexOf(v.currency) >= 0 ? v.currency : "CNY";
+    const r = c === "CNY" ? 1 : num(v.fxRate);
+    if (c !== "CNY" && !(r > 0)) { toast("请填汇率，或点「取最新」"); return false; }
     const date = v.date || todayISO();
     const rec = {
       project: v.project.trim(), date: date, amount: amount,
+      currency: c, fxRate: r,
       contact: v.contact.trim(), phone: v.phone.trim(), note: v.note.trim(), updatedAt: Date.now()
     };
     if (it) Object.assign(it, rec);
-    else state.investments.push(Object.assign({ id: uid(), dividends: [] }, rec));
+    else state.investments.push(Object.assign({ id: uid(), dividends: [], addons: [], photos: [] }, rec));
     commit();
     toast(it ? "已保存" : "已添加");
     return true;
   }, it ? "保存" : "添加");
+  /* 币种/汇率联动统一在 bindFxFields 里（三处表单共用一份） */
+  bindFxFields(ov);
+}
+/* 追投：已经投过的项目再加一笔本金 */
+function openAddonForm(invId, addonId) {
+  const it = findInvest(invId);
+  if (!it) { toast("这个项目已经不在了"); return; }
+  const one = addonId ? (it.addons || []).filter(function (x) { return x.id === addonId; })[0] : null;
+  const rows = (it.addons || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  const body =
+    field("本金（折人民币）", '<div class="static">' + money(investPrincipalCNY(it)) + "（首笔 " + money(num(it.amount) * fxRateOf(it)) +
+      " + 追投 " + money(investAddonCNYSum(it)) + "）</div>") +
+    (rows.length ? '<div class="dl-list">' + rows.map(function (x) {
+      const c = x.currency || it.currency || "CNY";
+      return '<div class="dl-row"><div class="dl-main"><b>追投 ' + (c !== "CNY" ? c + " " : "¥") + money(x.amount, 2).replace("¥", "") + "</b><small>" +
+        esc(x.date) + (c !== "CNY" ? " · 折合 " + money(num(x.amount) * fxRateFor(c, x.fxRate)) : "") +
+        (x.note ? " · " + esc(x.note) : "") + "</small></div>" +
+        '<button type="button" class="mini" data-addon="edit:' + esc(x.id) + '" data-id="' + esc(it.id) + '">改</button>' +
+        '<button type="button" class="mini danger" data-addon="del:' + esc(x.id) + '" data-id="' + esc(it.id) + '">删</button></div>';
+    }).join("") + "</div>" : "") +
+    '<div class="field-row" style="margin-top:12px">' +
+      field("追投金额", '<input name="amount" type="text" inputmode="decimal" placeholder="0" value="' + (one ? one.amount : "") + '">') +
+      field("追投日期", '<input name="date" type="date" value="' + (one ? one.date : todayISO()) + '">') +
+    "</div>" +
+    field("币种", '<select name="currency">' + fxOptions((one && one.currency) || it.currency || "CNY") + "</select>") +
+    field("人民币汇率（1 外币 = ? 元）", '<div class="field-row" style="gap:8px"><input name="fxRate" type="text" inputmode="decimal" value="' +
+      fxRateFor((one && one.currency) || it.currency || "CNY", one ? one.fxRate : it.fxRate).toFixed(4) + '">' +
+      '<button type="button" class="btn small" data-fxfetch="1" style="flex:none;white-space:nowrap">取最新</button></div>') +
+    field("备注", '<input name="note" maxlength="30" placeholder="选填，如 第二次追加" value="' + esc(one ? one.note : "") + '">') +
+    '<p class="hint fx-preview"></p>' +
+    '<p class="hint">追投只加本金，不算分红；回报率 = 累计分红 ÷（首笔 + 所有追投，全部折成人民币）。</p>' +
+    '<p class="err" hidden></p>';
+  const ovA = Sheet.open((one ? "编辑追投" : "追投") + " · " + esc(it.project || "未命名项目"), body, function (v) {
+    const amt = num(v.amount);
+    if (!(amt > 0)) { toast("追投金额需大于 0"); return false; }
+    const acur = FX_CODES.indexOf(v.currency) >= 0 ? v.currency : "CNY";
+    const arate = acur === "CNY" ? 1 : num(v.fxRate);
+    if (acur !== "CNY" && !(arate > 0)) { toast("请填汇率"); return false; }
+    const date = isDateStr(v.date) ? v.date : todayISO();
+    if (!Array.isArray(it.addons)) it.addons = [];
+    const rec = { amount: cash2(amt), currency: acur, fxRate: arate, date: date, note: String(v.note || "").trim() };
+    if (one) Object.assign(one, rec);
+    else it.addons.push(Object.assign({ id: uid() }, rec));
+    it.updatedAt = Date.now();
+    commit();
+    toast(one ? "追投已更新" : "已记追投");
+    setTimeout(function () { openAddonForm(it.id); }, 300);
+    return true;
+  }, one ? "保存" : "记一笔追投");
+  bindFxFields(ovA);
+  /* 编辑态给个明显标记：金额框自动聚焦并全选，一眼看出改的是哪一笔 */
+  if (one) {
+    const amtEl = ovA.querySelector('input[name="amount"]');
+    if (amtEl) { try { amtEl.focus(); amtEl.select(); } catch (e) { /* 桌面端才有 */ } }
+  }
+}
+/* 照片：每笔投资可传多张，压缩后存在本地 */
+function openPhotoSheet(invId) {
+  const it = findInvest(invId);
+  if (!it) { toast("这个项目已经不在了"); return; }
+  const photos = it.photos || [];
+  const body =
+    '<p class="hint" style="margin-bottom:10px">每张照片会压到长边 720、JPEG 0.72（约 60KB），最多 ' + PHOTO_MAX +
+    " 张（共 " + photos.length + " 张）。照片只存在这台设备上，导出 JSON 会一起带走。</p>" +
+    (photos.length ? '<div class="photo-grid">' + photos.map(function (ph, i) {
+      return '<div class="photo-cell" role="button" tabindex="0" data-photo="view:' + esc(ph.id) + '" data-id="' + esc(it.id) + '">' +
+        '<img src="' + esc(ph.data) + '" alt="' + esc(ph.name || ("投资照片 " + (i + 1))) + '">' +
+        '<span class="photo-idx">' + (i + 1) + '</span>' +
+        '<button type="button" class="photo-btn" data-photo="down:' + esc(ph.id) + '" data-id="' + esc(it.id) +
+        '" aria-label="保存这张照片">⤓</button>' +
+        '<button type="button" class="photo-del" data-photo="del:' + esc(ph.id) + '" data-id="' + esc(it.id) +
+        '" aria-label="删除这张照片">×</button></div>';
+    }).join("") + "</div>" +
+      '<div class="photo-tools"><button type="button" class="btn small" data-photo="downall" data-id="' + esc(it.id) +
+      '">全部保存</button><span class="hint">点图可放大查看</span></div>'
+      : '<div class="empty" style="padding:14px"><b>还没有照片</b>点下面选图，可以一次选多张</div>') +
+    '<p class="hint" style="margin-top:10px">手机上点「⤓」会弹系统分享面板，选「<b>存储图像</b>」才会进相册（网页没有直接写相册的权限）；' +
+    "桌面上会弹「另存为」，自己选保存位置。</p>" +
+    (photos.length >= PHOTO_MAX ? '<p class="err">已经到 ' + PHOTO_MAX + " 张上限，删掉几张再加</p>" :
+      '<label class="btn small" style="display:block;text-align:center;margin-top:12px">＋ 选择照片' +
+      '<input type="file" id="invPhotoInput" accept="image/*" multiple hidden></label>') +
+    '<p class="err" id="photoErr" hidden></p>';
+  const ov = Sheet.open("照片 · " + esc(it.project || "未命名项目"), body, function () { return true; }, "关闭");
+  const input = ov.querySelector("#invPhotoInput");
+  if (input) input.addEventListener("change", async function () {
+    const files = Array.prototype.slice.call(input.files || []);
+    if (!files.length) return;
+    const errEl = ov.querySelector("#photoErr");
+    let added = 0, failed = 0;
+    if (!Array.isArray(it.photos)) it.photos = [];
+    for (let i = 0; i < files.length; i++) {
+      if (it.photos.length >= PHOTO_MAX) break;
+      try {
+        const data = await compressImage(files[i], 720, 0.72);
+        it.photos.push({ id: uid(), data: data, name: String(files[i].name || "").slice(0, 40), at: Date.now() });
+        added++;
+      } catch (e) { failed++; }
+    }
+    it.updatedAt = Date.now();
+    try {
+      commit();
+    } catch (e) {
+      if (errEl) { errEl.hidden = false; errEl.textContent = "本地存储放不下了，先删几张再加"; }
+      return;
+    }
+    toast("已添加 " + added + " 张" + (failed ? "，失败 " + failed + " 张" : ""));
+    setTimeout(function () { openPhotoSheet(it.id); }, 300);
+  });
+}
+/* 点图放大：整屏看，带下载和关闭 */
+function openPhotoView(invId, photoId) {
+  const it = findInvest(invId);
+  const list = it ? (it.photos || []) : [];
+  const idx = list.map(function (x) { return x.id; }).indexOf(photoId);
+  const ph = idx >= 0 ? list[idx] : null;
+  if (!ph) { toast("这张照片不在了"); return; }
+  const multi = list.length > 1;
+  const body =
+    '<div class="photo-stage">' +
+      '<img class="photo-big" src="' + esc(ph.data) + '" alt="' + esc(ph.name || "投资照片") + '">' +
+      (multi ? '<button type="button" class="photo-nav prev" data-photo="prev" data-cur="' + esc(ph.id) +
+        '" data-id="' + esc(it.id) + '" aria-label="上一张">‹</button>' +
+        '<button type="button" class="photo-nav next" data-photo="next" data-cur="' + esc(ph.id) +
+        '" data-id="' + esc(it.id) + '" aria-label="下一张">›</button>' : "") +
+    "</div>" +
+    '<div class="photo-tools" style="justify-content:space-between">' +
+      '<span class="hint">' + esc(it.project || "") + " · 第 " + (idx + 1) + " / " + list.length + " 张" +
+        (multi ? " · 可左右滑动" : "") + " · 长按图片可「存储到照片」</span>" +
+      '<button type="button" class="btn small" data-photo="down:' + esc(ph.id) + '" data-id="' + esc(it.id) + '">保存到相册</button>' +
+    "</div>";
+  /* 取消 / 叉 / 点遮罩 → 只回照片列表，不退回主界面 */
+  const ov = Sheet.open("查看照片", body, function () { return true; }, "关闭", function () { openPhotoSheet(invId); });
+  const stage = ov.querySelector(".photo-stage");
+  const step = function (d) {
+    const n = (idx + d + list.length) % list.length;
+    openPhotoView(invId, list[n].id);
+  };
+  if (stage) {
+    let sx = 0, sy = 0, moved = false;
+    stage.addEventListener("touchstart", function (e) {
+      if (!e.touches || !e.touches.length) return;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; moved = false;
+    }, { passive: true });
+    stage.addEventListener("touchmove", function (e) {
+      if (!e.touches || !e.touches.length) return;
+      if (Math.abs(e.touches[0].clientX - sx) > 12) moved = true;
+    }, { passive: true });
+    stage.addEventListener("touchend", function (e) {
+      if (!multi || !e.changedTouches || !e.changedTouches.length) return;
+      const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+      if (Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy) * 1.4) step(dx < 0 ? 1 : -1);
+      else if (!moved) { /* 点一下什么都不做：别把轻点当成翻页 */ }
+    }, { passive: true });
+    stage.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+    });
+    try { stage.setAttribute("tabindex", "0"); stage.focus(); } catch (e) { /* 老浏览器 */ }
+  }
+}
+/* 下载：dataURL 直接存成文件；iOS Safari 会走「存储到文件/照片」 */
+/* iOS / iPadOS：data: 链接上的 download 属性是「静默无效」——
+   点了既不报错也不落盘，所以不能让用户以为存进去了，必须给长按路径 */
+function isIOSLike() {
+  const ua = String((navigator && navigator.userAgent) || "");
+  if (/iP(hone|ad|od)/.test(ua)) return true;
+  return !!(navigator && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+/* dataURL → Blob（同步，别让 user activation 过期，否则「另存为」弹不出来） */
+function dataUrlToBlob(u) {
+  const t = String(u || "");
+  const i = t.indexOf(",");
+  if (i < 0) return null;
+  const head = t.slice(0, i), body = t.slice(i + 1);
+  const mime = (head.match(/data:([^;]+)/) || [])[1] || "image/jpeg";
+  try {
+    if (/;base64/i.test(head)) {
+      const bin = atob(body), arr = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
+      return new Blob([arr], { type: mime });
+    }
+    return new Blob([decodeURIComponent(body)], { type: mime });
+  } catch (e) { return null; }
+}
+/* 能选路径就弹系统「另存为」，选不了（iOS Safari）就走下载 */
+async function downloadPhoto(invId, photoId) {
+  const it = findInvest(invId);
+  const list = it ? (it.photos || []) : [];
+  const idx = list.map(function (x) { return x.id; }).indexOf(photoId);
+  const ph = idx >= 0 ? list[idx] : null;
+  if (!ph) { toast("这张照片不在了"); return false; }
+  const name = (String(it.project || "投资").replace(/[\\/:*?"<>|]/g, "") || "投资") + "-" + (idx + 1) + ".jpg";
+  const blob = dataUrlToBlob(ph.data);
+  const why = [];        /* 每一层为什么没成，最后一起告诉用户，绝不静默 */
+  /* ① 手机（iOS Safari / PWA）：网页写不进系统相册，只能调系统分享面板，
+        用户在面板里选「存储图像」才会进相册。canShare 先问一句，免得白弹。 */
+  if (blob && typeof File === "function" && navigator.canShare) {
+    try {
+      const file = new File([blob], name, { type: blob.type || "image/jpeg" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: name });
+        toast("已打开分享面板：选「存储图像」才会进相册");
+        return true;
+      }
+      why.push("浏览器不支持分享图片");
+    } catch (e) {
+      /* 用户自己关掉分享面板 = 取消，别接着去下载 */
+      if (e && e.name === "AbortError") { toast("已取消，没有保存"); return false; }
+      why.push("分享面板打不开（" + ((e && (e.name || e.message)) || "被系统拒绝") + "）");
+    }
+  } else {
+    why.push("没有分享能力");
+  }
+  /* ② 桌面：弹系统「另存为」，自己选目录和文件名 */
+  if (blob && typeof window.showSaveFilePicker === "function") {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: "JPEG 图片", accept: { "image/jpeg": [".jpg", ".jpeg"] } }]
+      });
+      const w = await handle.createWritable();
+      await w.write(blob);
+      await w.close();
+      toast("已保存到 " + (handle.name || name));
+      return true;
+    } catch (e) {
+      /* AbortError = 用户自己取消，别当成失败去走下载 */
+      if (e && e.name === "AbortError") { toast("已取消，没有保存"); return false; }
+      why.push("另存为失败（" + ((e && (e.name || e.message)) || "无权限") + "）");
+    }
+  }
+  /* ③ iOS：a[download] 对 data: 是静默无效，点了什么都不会发生 ——
+        所以既不假装成功，也不偷偷点一下，直接把大图打开让你长按保存。 */
+  if (isIOSLike()) {
+    openPhotoView(invId, photoId);
+    toast("这个浏览器不能直接存文件（" + why.join("；") + "）：请长按图片选「存储图像」");
+    return false;
+  }
+  try {
+    const a = document.createElement("a");
+    a.href = ph.data;
+    a.download = name;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast("已开始下载 " + name + "（在浏览器下载列表里）");
+    return true;
+  } catch (e) {
+    toast("下载没有启动（" + ((e && e.message) || "浏览器不支持") + "）：请长按图片选「存储照片」");
+    return false;
+  }
+}
+async function downloadAllPhotos(invId) {
+  const it = findInvest(invId);
+  const list = it ? (it.photos || []) : [];
+  if (!list.length) { toast("还没有照片"); return; }
+  const base = String(it.project || "投资").replace(/[\\/:*?"<>|]/g, "") || "投资";
+  const whyAll = [];
+  /* 手机：一次把全部照片丢进分享面板，全选「存储图像」就都进相册了 */
+  if (typeof File === "function" && navigator.canShare && list.every(function (x) { return !!dataUrlToBlob(x.data); })) {
+    try {
+      const files = list.map(function (ph, i) {
+        const b = dataUrlToBlob(ph.data);
+        return new File([b], base + "-" + (i + 1) + ".jpg", { type: b.type || "image/jpeg" });
+      });
+      if (navigator.canShare({ files: files })) {
+        await navigator.share({ files: files, title: base });
+        toast("已打开分享面板，全选后点「存储图像」");
+        return true;
+      }
+      whyAll.push("浏览器不支持一次分享多张");
+    } catch (e) {
+      if (e && e.name === "AbortError") { toast("已取消，没有保存"); return false; }
+      whyAll.push("分享面板打不开（" + ((e && (e.name || e.message)) || "被系统拒绝") + "）");
+    }
+  } else {
+    whyAll.push("没有分享能力");
+  }
+  if (isIOSLike()) {
+    openPhotoView(invId, list[0].id);
+    toast("不能批量存文件（" + whyAll.join("；") + "）：请点开大图后长按选「存储图像」");
+    return false;
+  }
+  /* 桌面 / 不支持分享：逐个触发，浏览器可能只放行第一个 */
+  list.forEach(function (ph, i) { setTimeout(function () { downloadPhoto(invId, ph.id); }, i * 400); });
+  toast("开始下载 " + list.length + " 张" + (list.length > 1 ? "（若只存下一张，可逐张点 ⤓）" : ""));
+  return true;
+}
+function deleteInvestPhoto(invId, photoId) {
+  const it = findInvest(invId);
+  if (!it) return;
+  it.photos = (it.photos || []).filter(function (x) { return x.id !== photoId; });
+  it.updatedAt = Date.now();
+  commit();
+  toast("已删除照片");
+  setTimeout(function () { openPhotoSheet(it.id); }, 300);
 }
 /* 总览和存款页共用一张汇总表：projects / amount / div / roi / stale */
 function openInvestSummary(kind) {
@@ -4011,13 +5048,16 @@ function openInvestSummary(kind) {
       const n = (it.dividends || []).length;
       return n ? n + " 笔 · 最近 " + esc(investLastDiv(it)) : "还没有分红";
     },
-    roi: function (it) { return "分红 " + money(investDivSum(it)) + " ÷ 本金 " + money(it.amount); },
+    roi: function (it) {
+      return "分红 " + money(investDivCNY(it)) + " ÷ 本金 " + money(investPrincipalCNY(it)) +
+        (it.currency && it.currency !== "CNY" ? "（" + it.currency + " 按 " + fxRateOf(it).toFixed(4) + " 折算）" : "");
+    },
     stale: function (it) { return "上次分红 " + esc(investLastDiv(it)) + " · 已经 " + daysBetween(investLastDiv(it), todayISO()) + " 天"; }
   };
   const VAL = {
-    projects: function (it) { return money(it.amount); },
-    amount: function (it) { return money(it.amount); },
-    div: function (it) { return money(investDivSum(it)); },
+    projects: function (it) { return money(investPrincipalCNY(it)); },
+    amount: function (it) { return money(investPrincipalCNY(it)); },
+    div: function (it) { return money(investDivCNY(it)); },
     roi: function (it) { return investROI(it).toFixed(2) + "%"; },
     stale: function (it) { return daysBetween(investLastDiv(it), todayISO()) + " 天"; }
   };
@@ -4054,18 +5094,22 @@ function openInvestDivList(invId) {
   const divs = (it.dividends || []).slice().sort(function (a, b) {
     return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0);
   });
-  const sum = investDivSum(it);
+  const sum = investDivCNY(it);
+  const base = it.currency || "CNY";
   const body =
     '<div class="stats" style="margin-bottom:12px">' +
       statRow("分红笔数", divs.length + " 笔") +
-      statRow("分红合计", money(sum), sum > 0 ? "up" : "") +
+      statRow("分红合计（人民币）", money(sum), sum > 0 ? "up" : "") +
     "</div>" +
     '<div class="inv-head"><span class="hint">' + esc(it.project || "未命名项目") + " · 投于 " + esc(it.date) + "</span>" +
       '<button type="button" class="btn small" data-invest="divadd" data-id="' + esc(invId) + '">＋ 记一笔分红</button></div>' +
     (divs.length
       ? '<div class="dl-list">' + divs.map(function (x) {
-          return '<div class="dl-row"><div class="dl-main"><b>' + esc(x.date) + "</b><small>" + esc(x.note || "分红") + "</small></div>" +
-            '<div class="dl-side"><b class="num up">' + money(x.amount) + "</b>" +
+          const xc = x.currency || base;
+          const cny = num(x.amount) * fxRateFor(xc, x.fxRate);
+          return '<div class="dl-row"><div class="dl-main"><b>' + esc(x.date) + "</b><small>" + esc(x.note || "分红") +
+            (xc !== base ? " · " + xc : "") + "</small></div>" +
+            '<div class="dl-side"><b class="num up">' + (xc === base ? money(x.amount) : money(cny)) + "</b>" +
             '<button type="button" class="mini" data-invest="divedit" data-id="' + esc(invId) + '" data-did="' + esc(x.id) + '">改</button>' +
             '<button type="button" class="mini danger" data-invest="divdel" data-id="' + esc(invId) + '" data-did="' + esc(x.id) + '">删</button></div></div>';
         }).join("") + "</div>"
@@ -4078,14 +5122,21 @@ function openInvestDivForm(invId, divId) {
   const dv = divId ? (it.dividends || []).filter(function (x) { return x.id === divId; })[0] : null;
   const body =
     field("分红日期", '<input name="date" type="date" value="' + (dv ? dv.date : todayISO()) + '">') +
-    field("分红金额（元）", '<input name="amount" type="text" inputmode="decimal" value="' + (dv ? dv.amount : "") + '">') +
+    field("分红金额", '<input name="amount" type="text" inputmode="decimal" value="' + (dv ? dv.amount : "") + '">') +
+    field("币种", '<select name="currency">' + fxOptions((dv && dv.currency) || (it && it.currency) || "CNY") + "</select>") +
+    field("人民币汇率（1 外币 = ? 元）", '<input name="fxRate" type="text" inputmode="decimal" value="' +
+      fxRateFor((dv && dv.currency) || (it && it.currency) || "CNY", dv ? dv.fxRate : (it && it.fxRate)).toFixed(4) + '">') +
     field("备注", '<input name="note" placeholder="选填，如 2026 上半年分红" value="' + esc(dv ? dv.note : "") + '">') +
+    '<p class="hint fx-preview"></p>' +
     '<p class="err" hidden></p>' +
-    '<p class="hint">每笔分红只记一个金额，可以随时改或删；合计会自动加到「现金」弹窗的「投资分红」一行。</p>';
-  Sheet.open((dv ? "编辑分红" : "记一笔分红") + " · v" + APP_VERSION, body, function (v) {
+    '<p class="hint">每笔分红可以单独选币种（默认跟项目一致），合计按人民币汇到「现金 → 投资分红」一行。</p>';
+  const ovD = Sheet.open((dv ? "编辑分红" : "记一笔分红") + " · v" + APP_VERSION, body, function (v) {
     const amount = num(v.amount);
     if (!isFinite(amount) || amount <= 0) { toast("分红金额需大于 0"); return false; }
-    const rec = { amount: amount, date: v.date || todayISO(), note: v.note.trim() };
+    const dcur = FX_CODES.indexOf(v.currency) >= 0 ? v.currency : "CNY";
+    const drate = dcur === "CNY" ? 1 : num(v.fxRate);
+    if (dcur !== "CNY" && !(drate > 0)) { toast("请填汇率"); return false; }
+    const rec = { amount: amount, currency: dcur, fxRate: drate, date: v.date || todayISO(), note: v.note.trim() };
     if (dv) Object.assign(dv, rec);
     else it.dividends.push(Object.assign({ id: uid() }, rec));
     it.dividends.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
@@ -4095,6 +5146,7 @@ function openInvestDivForm(invId, divId) {
     setTimeout(function () { openInvestDivList(invId); }, 300);
     return true;
   }, dv ? "保存" : "记一笔");
+  bindFxFields(ovD);
 }
 function confirmDeleteInvest(it) {
   Sheet.open("删除对外投资 · v" + APP_VERSION,
@@ -4765,11 +5817,16 @@ function loadDemo() {
 /* ============ 交互 ============ */
 /** 跳到某个页签；给了 id 就再滚到那一笔、展开折叠、闪两下。
  *  页签或那一笔不存在时只做能做的部分，不报错、不把界面切成空白。 */
-function gotoSection(name, id) {
+function gotoSection(name, id, sub) {
   if (!$("#view-" + name)) return;
   /* 从弹窗里点过来的：先把弹窗收起来，别让浮层挡住目标 */
   if (document.querySelector(".overlay")) { try { Sheet.close(); } catch (e) { /* 没开着就算了 */ } }
   switchTab(name);
+  /* 资产分布点某项：只切到它自己的窗口（基金/股票/黄金、定存/现金），不再笼统停在第一个 */
+  if (sub) {
+    if (name === "holdings") { setHoldTab(sub); return; }
+    if (name === "deposits") { setDepTab(sub); return; }
+  }
   if (!id) return;
   /* 目标藏在自己页面里的某个窗口后面时，先切到那个窗口，否则节点还没渲染 */
   if (name === "deposits") {
@@ -4811,6 +5868,64 @@ document.addEventListener("click", function (e) {
     return;
   }
 
+  /* 追投：改 / 删 */
+  const ad = e.target.closest("[data-addon]");
+  if (ad) {
+    const v = String(ad.dataset.addon || ""), op = v.split(":")[0], aid = v.slice(op.length + 1);
+    const iid = ad.dataset.id;
+    if (op === "edit") openAddonForm(iid, aid);
+    else if (op === "del") {
+      const it = findInvest(iid);
+      if (it) {
+        it.addons = (it.addons || []).filter(function (x) { return x.id !== aid; });
+        it.updatedAt = Date.now();
+        commit();
+        toast("已删除这笔追投");
+        setTimeout(function () { openAddonForm(iid); }, 80);   /* 立刻刷新，别等用户再点开 */
+      }
+    }
+    return;
+  }
+  /* 照片：查看 / 下载 / 删除 */
+  const ph = e.target.closest("[data-photo]");
+  if (ph) {
+    const v = String(ph.dataset.photo || ""), op = v.split(":")[0], pid = v.slice(op.length + 1);
+    const iid = ph.dataset.id || "";
+    if (op === "view") openPhotoView(iid, pid);
+    else if (op === "prev" || op === "next") {
+      const it2 = findInvest(iid);
+      const ps = it2 ? (it2.photos || []) : [];
+      const cur = ps.map(function (x) { return x.id; }).indexOf(String(ph.dataset.cur || ""));
+      if (cur >= 0 && ps.length > 1) {
+        const n = (cur + (op === "next" ? 1 : ps.length - 1)) % ps.length;
+        openPhotoView(iid, ps[n].id);
+      }
+    } else if (op === "down") downloadPhoto(iid, pid);
+    else if (op === "downall") downloadAllPhotos(iid);
+    else if (op === "del") deleteInvestPhoto(iid, pid);
+    return;
+  }
+
+  /* 持仓买卖流水：列表 / 更正 / 删除 */
+  const txEl = e.target.closest("[data-tx]");
+  if (txEl) {
+    const v = String(txEl.dataset.tx || ""), op = v.split(":")[0], tid = v.slice(op.length + 1);
+    const hid = txEl.dataset.id || (txEl.closest("[data-id]") && txEl.closest("[data-id]").dataset.id) || "";
+    if (op === "edit") openTxForm(hid, tid);
+    else if (op === "del") deleteTx(hid, tid);
+    return;
+  }
+  /* 银行卡明细 */
+  const bankEl = e.target.closest("[data-bank]");
+  if (bankEl) {
+    const v = String(bankEl.dataset.bank || ""), op = v.split(":")[0], bid = v.slice(op.length + 1);
+    if (op === "manage") openBankCards();
+    else if (op === "add") openBankCardForm(null);
+    else if (op === "edit") openBankCardForm(bid);
+    else if (op === "del") deleteBankCard(bid);
+    return;
+  }
+
   /* 对外投资汇总格（总览 / 存款页） */
   const invSum = e.target.closest("[data-invsum]");
   if (invSum) { openInvestSummary(invSum.dataset.invsum); return; }
@@ -4823,6 +5938,8 @@ document.addEventListener("click", function (e) {
     else if (k === "edit") openInvestmentForm(iid);
     else if (k === "del") { const it = findInvest(iid); if (it) confirmDeleteInvest(it); }
     else if (k === "divs") openInvestDivList(iid);
+    else if (k === "addon") openAddonForm(iid, null);
+    else if (k === "photos") openPhotoSheet(iid);
     else if (k === "divadd") openInvestDivForm(iid, null);
     else if (k === "divedit") openInvestDivForm(iid, did);
     else if (k === "divdel") {
@@ -4850,7 +5967,7 @@ document.addEventListener("click", function (e) {
 
   /* 总览里的统计格 / 图例：跳到对应的页签。放在 data-tab 之前，两者不会同时命中 */
   const go = e.target.closest("[data-goto]");
-  if (go) { gotoSection(go.dataset.goto, go.dataset.gotoId); return; }
+  if (go) { gotoSection(go.dataset.goto, go.dataset.gotoId, go.dataset.gotoSub); return; }
 
   const cashAdd = e.target.closest("[data-cash]");
   if (cashAdd) { openCashEntryForm(); return; }
@@ -5030,6 +6147,7 @@ document.addEventListener("click", function (e) {
     }
     else if (a === "buy") openTrade(id, "buy");
     else if (a === "sell") openTrade(id, "sell");
+    else if (a === "tx") openTxList(id);
     else if (a === "price") openPrice(id);
     else if (a === "refresh") refreshHolding(id, false);
     return;
@@ -5043,7 +6161,7 @@ document.addEventListener("keydown", function (e) {
   const lstatEl = e.target && e.target.closest && e.target.closest("[data-loan]");
   if (lstatEl) { e.preventDefault(); openLoanDetail(lstatEl.dataset.loan); return; }
   const goEl = e.target && e.target.closest && e.target.closest("[data-goto]");
-  if (goEl) { e.preventDefault(); gotoSection(goEl.dataset.goto, goEl.dataset.gotoId); return; }
+  if (goEl) { e.preventDefault(); gotoSection(goEl.dataset.goto, goEl.dataset.gotoId, goEl.dataset.gotoSub); return; }
   const head = e.target && e.target.closest && e.target.closest("[data-fold]");
   if (!head) return;
   e.preventDefault();
@@ -5111,6 +6229,12 @@ document.addEventListener("visibilitychange", function () {
   if (lockEl) return;
   nextAutoAt = 0;
   autoRefreshTick();          // 回到前台立即补拉一次
+  /* 收益日历：回到前台重算一次（跨天后金额会变） */
+  refreshCalIfOpen();
+  /* 外币投资：汇率超过 12 小时就补拉一次，拉不到保留旧值 */
+  if (typeof haveForeignInvest === "function" && haveForeignInvest()) {
+    fetchFxRates().then(function () { render(); }).catch(function () { /* 离线时静默保留旧汇率 */ });
+  }
 });
 $("#bkEnabled").addEventListener("change", function (e) {
   state.settings.backup.enabled = !!e.target.checked;
@@ -5597,6 +6721,8 @@ function snapshotData() {
     v: 1,
     cash: state.cash,
     cashParts: state.cashParts,
+    bankCards: state.bankCards,
+    fx: state.fx,
     holdings: state.holdings,
     deposits: state.deposits,
     loans: state.loans,
