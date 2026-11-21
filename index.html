@@ -1141,7 +1141,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.55";
+const APP_VERSION = "2026-11-20.58";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -2796,7 +2796,9 @@ function renderLoans() {
         ((l.photos || []).length ? "（" + l.photos.length + " 张）" : "· 上传 / 下载") + '</button></div>' +
       (l.note ? '<p class="hint note" data-note="' + esc(l.id) + '" data-notekind="loan" role="button" tabindex="0">' + esc(l.note) + '</p>' : '') +
       itemFoot('<span class="src manual">' + (c.repayCount
-        ? "还款 " + c.principalCount + " 笔 · 收息 " + c.interestCount + " 笔" : "未还过款") + '</span>', "", BTN_EDIT_DEL) +
+        ? "还款 " + c.principalCount + " 笔 · 收息 " + c.interestCount + " 笔" : "未还过款") + '</span>', "",
+        '<div class="row-actions"><button type="button" class="mini" data-edit="' + esc(l.id) + '" data-kind="loan">编辑</button>' +
+        '<button type="button" class="mini danger" data-del="' + esc(l.id) + '" data-kind="loan">删除</button></div>') +
       '</div></article>';
   }).join("");
 }
@@ -2976,13 +2978,14 @@ function renderLoanAll() {
 
 
 /* ============ 借入 / 项目款项：表单与弹窗 ============ */
-function detailListHTML(rows, sum) {
+function detailListHTML(rows, sum, extra) {
   if (!rows.length) return '<div class="empty" style="padding:14px">这一项还没有记录</div>';
   return '<div class="dl-list">' + rows.map(function (r) {
     const neg = r.v < 0;
     return '<div class="dl-row"><div class="dl-main"><b>' + esc(r.t || "") + '</b><small>' + esc(r.s || "") + "</small></div>" +
       '<div class="num strong' + (neg ? " down" : "") + '">' + (neg ? "-" : "") + money(Math.abs(r.v)) + "</div></div>";
-  }).join("") + '</div><p class="hint" style="margin-top:8px">合计 <b class="num">' + money(sum) + "</b></p>";
+  }).join("") + '</div><p class="hint" style="margin-top:8px">合计 <b class="num">' + money(sum) + "</b></p>" +
+    (extra ? '<p class="hint" style="margin-top:2px">' + extra + "</p>" : "");
 }
 function termField(l) {
   return field("期限", '<div class="row2"><input type="text" inputmode="numeric" name="termValue" value="' + esc(l ? l.termValue : 12) +
@@ -3023,7 +3026,7 @@ function openBorrowForm(id) {
     const delta = amt - before;
     if (delta) {
       cashDelta(delta, rec.cashAccount);
-      logCashFlow("borrow", delta, rec.cashAccount, rec.startDate, "借入 · " + (rec.name || "未填"));
+      logCashFlow("borrow", delta, rec.cashAccount, rec.startDate, "借入 · " + (rec.name || "未填"), rec.id);
     }
     rec.updatedAt = Date.now();
     commit(); toast(l ? "已更新" : "已记一笔借入"); setTimeout(renderBorrowings, 60);
@@ -3057,7 +3060,7 @@ function openCollectForm(id) {
     const gotDiff = collectGot(rec) - prevGot;
     if (Math.abs(gotDiff) > 0.004) {
       cashDelta(gotDiff, rec.account);
-      logCashFlow("collect", gotDiff, rec.account, rec.date, "实际入账 · " + (rec.project || "未命名"));
+      logCashFlow("collect", gotDiff, rec.account, rec.date, "项目款项 · " + (rec.project || "未命名"), rec.id);
     }
     commit(); toast(c ? "已更新" : "已新增项目"); setTimeout(renderCollections, 60);
     return true;
@@ -3088,7 +3091,7 @@ function openCollectEntryForm(cid, eid) {
     const before = e ? num(e.amount) : 0;
     if (!(num(c.actual) > 0)) {   /* 实际入账已经记过账，明细不再重复进现金 */
       cashDelta(amt - (e ? before : 0), v.account);
-      logCashFlow("collect", amt - (e ? before : 0), v.account, v.date, "项目款项 · " + (c.project || "未命名"));
+      logCashFlow("collect", amt - (e ? before : 0), v.account, v.date, "项目款项 · " + (c.project || "未命名"), c.id);
     }
     commit(); toast(e ? "已更正" : "已记入账"); setTimeout(renderCollections, 60);
     return true;
@@ -3102,24 +3105,43 @@ function deleteCollectEntry(cid, eid) {
   if (!e) { toast("这笔入账已经不在了"); return; }
   if (!(num(c.actual) > 0)) {
     cashDelta(-num(e.amount), e.account);
-    logCashFlow("collect", -num(e.amount), e.account, e.date, "撤销入账 · " + (c.project || "未命名"));
+    logCashFlow("collect", -num(e.amount), e.account, e.date, "项目款项 · " + (c.project || "未命名"), c.id);
   }
   c.entries = (c.entries || []).filter(function (x) { return x.id !== eid; });
   c.updatedAt = Date.now(); commit(); toast("已撤销这笔入账");
   setTimeout(renderCollections, 60);
 }
 /* 借款类现金流水：所有入账出账都必须留一条收支记录，且不可删除（只能回源头改/删） */
-function logCashFlow(kind, amount, account, date, note) {
+function logCashFlow(kind, amount, account, date, note, refId) {
   const amt = num(amount);
   if (!isFinite(amt) || Math.abs(amt) < 0.005) return null;
   if (!Array.isArray(state.cashLog)) state.cashLog = [];
   const rec = {
     id: uid(), kind: amt > 0 ? "in" : "out", amount: Math.abs(amt),
     account: account || "", date: isDateStr(date) ? date : todayISO(),
-    note: note, locked: true, ref: { kind: kind, id: "" }, updatedAt: Date.now()
+    note: note, locked: true, ref: { kind: kind, id: asStr(refId) }, updatedAt: Date.now()
   };
   state.cashLog.push(rec);
   return rec;
+}
+/* 删掉来源记录时，把自动生成的收支流水一起撤掉：每撤一条现金按反方向退回，
+   否则流水留着、余额却已经回退过，两边永远对不上 */
+function removeCashFlows(kind, refId, name) {
+  const id = asStr(refId);
+  if (!Array.isArray(state.cashLog) || !id) return 0;
+  const hit = state.cashLog.filter(function (x) {
+    if (!x || !x.locked || !x.ref || x.ref.kind !== kind) return false;
+    /* 老数据没有 ref.id：用备注前缀兜底，避免历史流水留成孤儿 */
+    if (x.ref.id) return x.ref.id === id;
+    return !!name && String(x.note || "").indexOf(name) === 0;
+  });
+  hit.forEach(function (x) { cashDelta(x.kind === "in" ? -num(x.amount) : num(x.amount), x.account); });
+  if (hit.length) {
+    const dead = {};
+    hit.forEach(function (x) { dead[x.id] = 1; });
+    state.cashLog = state.cashLog.filter(function (x) { return !dead[x.id]; });
+  }
+  return hit.length;
 }
 function openNoteView(kind, id) {
   const rec = findPhotoRec(kind === "loan" ? "borrow" : kind, id) || (state.loans || []).filter(function (x) { return x.id === id; })[0];
@@ -3175,14 +3197,23 @@ function openOvStat(key) {
   else if (key === "principal") live(state.deposits).forEach(function (d) { push(d.bank || "定存", d.startDate + " · " + d.rate + "%", num(d.principal), d.id); });
   else if (key === "accrued") live(state.deposits).forEach(function (d) {
     const c = depositCalc(d);
-    push(d.bank || "定存", "已产生 " + money(c.accrued) + " · 未产生 " + money(Math.max(0, c.interest - c.accrued)), c.accrued, d.id);
+    /* 一次性把三个数都给出来：今天已产生 / 还没产生 / 到期合计——总览那格取「已产生」 */
+    push(d.bank || "定存",
+      "已产生 " + money(c.accrued) + " · 未产生 " + money(Math.max(0, c.interest - c.accrued)) + " · 到期 " + money(c.interest),
+      c.accrued, d.id);
   });
   else if (key === "loanReceived") live(state.loans).forEach(function (l) { const c = loanCalc(l); push(l.borrower || "借款", "已付利息", c.interestPaid, l.id); });
   else if (key === "cash") CASH_KEYS.forEach(function (k) { push(CASH_LABEL[k], "账户余额", num((state.cashParts || {})[k]), ""); });
   else if (key === "dividend") live(state.investments).forEach(function (it) { const v = investDivCNY(it); if (v > 0.004) push(it.project || "对外投资", "累计分红", v, it.id); });
   const T = { mv: "持仓市值", floatpl: "持仓浮动盈亏", realized: "已实现盈亏", principal: "定存本金", accrued: "定存应计利息", loanReceived: "已付利息", cash: "现金 / 备用金", dividend: "累计分红" }[key] || "明细";
   const sum = key === "cash" ? num(t.cash) : rows.reduce(function (a, x) { return a + x.v; }, 0);
-  Sheet.open(T + " · 明细", detailListHTML(rows, sum), function () { return true; }, "关闭");
+  let extra = "";
+  if (key === "accrued") {
+    const tot = live(state.deposits).reduce(function (a, d) { const c = depositCalc(d); return a + Math.max(0, c.interest - c.accrued); }, 0);
+    extra = "未产生（到期才拿到的）合计 <b class=\"num\">" + money(tot) + "</b>；两段相加 = 到期总利息 " + money(sum + tot) +
+      "。<br>总览那一格 = 上面这个「已产生」合计，口径就是从起存日算到今天。";
+  }
+  Sheet.open(T + " · 明细", detailListHTML(rows, sum, extra), function () { return true; }, "关闭");
   void dv;
 }
 
@@ -4322,7 +4353,9 @@ function openCashLogDetail(id) {
     '</div>' +
     (x.locked ? '<p class="hint">这笔是借款 / 项目款项自动记的，不能单独删——回源头改或删，这里会跟着变。</p>'
       : '<p class="hint">这条是手动记的，可以在列表里直接删掉。</p>');
-  Sheet.open("收支详情 · v" + APP_VERSION, body, function () { return true; }, "关闭");
+  /* 关闭 / 取消 / 叉都只回上一层（收支记录列表），不要一路关到底 */
+  const back = function () { setTimeout(openCashForm, 60); };
+  Sheet.open("收支详情 · v" + APP_VERSION, body, function () { back(); return true; }, "关闭", back);
 }
 function openHiddenList() {
   const total = hiddenCount();
@@ -4404,12 +4437,12 @@ function openLoanForm(id) {
       const diff = amount - num(l.amount);
       Object.assign(l, payload);
       cashDelta(-diff, payload.cashAccount);
-      logCashFlow("loan", -diff, payload.cashAccount, todayISO(), "借出款调整 · " + borrower);
+      logCashFlow("loan", -diff, payload.cashAccount, todayISO(), "借出 · " + borrower, l.id);
       touchRec(l);
     } else {
       state.loans.push(Object.assign({ id: uid(), repayments: [], cashBooked: true }, payload));
       cashDelta(-amount, payload.cashAccount);  /* 借出去的钱从现金里出 */
-      logCashFlow("loan", -amount, payload.cashAccount, startDate, "借出 · " + borrower);
+      logCashFlow("loan", -amount, payload.cashAccount, startDate, "借出 · " + borrower, state.loans[state.loans.length - 1].id);
       touchRec(state.loans[state.loans.length - 1]);
     }
     commit();
@@ -7351,20 +7384,29 @@ function bindLoanWiring() {
     }
     if ((el = t.closest("[data-del][data-kind]"))) {
       const k = el.dataset.kind;
-      if (k !== "borrow" && k !== "collect") return;
-      const arr = k === "borrow" ? state.borrowings : state.collections;
+      if (["loan", "borrow", "collect"].indexOf(k) < 0) return;
+      const arr = k === "loan" ? state.loans : (k === "borrow" ? state.borrowings : state.collections);
       const rec = (arr || []).filter(function (x) { return x.id === el.dataset.del; })[0];
       if (!rec) return;
-      Sheet.open("删除确认", '<p class="hint">删除后无法撤销，现金记录不会自动回退。</p>', function () {
-        if (k === "borrow") {
-          cashDelta(-num(rec.amount), rec.cashAccount);
-          logCashFlow("borrow", -num(rec.amount), rec.cashAccount, todayISO(), "删除借入 · " + (rec.name || "未填"));
-        }
-        state[k === "borrow" ? "borrowings" : "collections"] = arr.filter(function (x) { return x.id !== rec.id; });
-        commit(); toast("已删除");
-        setTimeout(k === "borrow" ? renderBorrowings : renderCollections, 60);
-        return true;
-      }, "删除");
+      const who = k === "collect" ? (rec.project || "未命名") : (rec.borrower || rec.name || "未填");
+      Sheet.open("删除确认",
+        '<p class="hint">将删除「' + esc(who) + '」，并<b>一并撤掉它自动记的收支流水</b>，现金按原路退回。删除后无法撤销。</p>',
+        function () {
+          /* 撤流水时每条已经按反方向退过现金了，这里不要再退一次；
+             只有一条流水都找不到（老数据）时才用本金兜底，避免重复冲回 */
+          const n = removeCashFlows(k, rec.id, k === "loan" ? "借出 · " : (k === "borrow" ? "借入 · " : "项目款项 · "));
+          if (!n) {
+            if (k === "loan") cashDelta(num(rec.amount), rec.cashAccount);
+            else if (k === "borrow") cashDelta(-num(rec.amount), rec.cashAccount);
+            else cashDelta(-collectGot(rec), rec.account);
+          }
+          state[k === "loan" ? "loans" : (k === "borrow" ? "borrowings" : "collections")] =
+            arr.filter(function (x) { return x.id !== rec.id; });
+          commit();
+          toast(n > 1 ? "已删除，并撤销了 " + n + " 条收支流水" : "已删除，收支流水也一起撤了");
+          setTimeout(k === "loan" ? renderLoans : (k === "borrow" ? renderBorrowings : renderCollections), 60);
+          return true;
+        }, "删除");
       return;
     }
   });
