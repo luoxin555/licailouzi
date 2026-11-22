@@ -1187,7 +1187,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.76";
+const APP_VERSION = "2026-11-20.77";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -3543,24 +3543,22 @@ const Sheet = {
       const data = {};
       const fd = new FormData(e.target);
       fd.forEach(function (v, k) { data[k] = v; });
-      /* 任何写入前先留一份快照：现金不够时整笔回滚，绝不留半截数据 */
-      const snap = JSON.stringify(state);
+      /* 上一次操作留下的「余额不足」标记必须先清掉，否则这笔正常交易会被误判、流水不显示 */
+      CASH_SHORT.v = null;
+      Sheet._blocked = false;
+      /* 快照要在这笔操作动任何数据之前拍：记一笔是「先 push 流水、再扣现金」，
+         在 cashDelta 里拍就晚了，回滚会把被拒绝的那条流水留下来 */
+      try { CASH_TX = JSON.stringify(state); } catch (e) { CASH_TX = null; }
       let r;
       try { r = onSubmit(data); } catch (err) { console.error(err); r = false; }
-      if (CASH_SHORT.v != null) {
-        const short = CASH_SHORT.v;
-        CASH_SHORT.v = null;
-        try { state = JSON.parse(snap); } catch (e) { /* 快照坏了就保持原样 */ }
-        render();
-        toast("余额不足，还差 " + moneyFull(short) + "，没有保存");
-        return;
-      }
+      if (CASH_SHORT.v != null) return;   /* 回滚由 cashFinalize 统一做，连收支记录一起退 */
       if (r === false) return;
       Sheet.close();
     });
     return ov;
   },
   close(cancelled) {
+    if (this._blocked) { this._blocked = false; return; }
     if (!this.el) return;
     const el = this.el, back = this._onCancel;
     this.el = null;
@@ -4333,10 +4331,31 @@ function cashAccountOptions(sel, withAuto) {
 /* 四个账户任何操作都不允许出现负数：余额不够就整笔拒绝（不写半截），
    由 Sheet 的提交口统一回滚并提示还差多少 */
 const CASH_SHORT = { v: null };
-function cashShort(short) { CASH_SHORT.v = Math.abs(cash2(short)); return 0; }
+let CASH_TX = null;
+/* 一次操作里第一次动到现金就先拍快照；余额不足时整笔退回去（余额、流水、收支记录一起退），
+   然后重绘当前页面并提示差额 —— 不管入口是记一笔、互转、借出、项目款项还是投资扣款，
+   都走这同一条路，不会再留半截数据 */
+function cashFinalize() {
+  if (CASH_SHORT.v == null) { CASH_TX = null; return; }
+  const short = CASH_SHORT.v;
+  CASH_SHORT.v = null;
+  if (CASH_TX) { try { state = JSON.parse(CASH_TX); } catch (e) { /* 快照坏了就保持原样 */ } }
+  CASH_TX = null;
+  try { commit(); } catch (e) { /* 存不进也不影响下一次操作 */ }
+  try { render(); } catch (e) { /* 重绘失败留到下次渲染 */ }
+  toast("余额不足，还差 " + moneyFull(short) + "，没有保存");
+}
+function cashShort(short) {
+  CASH_SHORT.v = Math.abs(cash2(short));
+  /* 拒绝时弹窗必须留着让人改金额：各表单自己的 setTimeout(Sheet.close) 一律作废一次 */
+  Sheet._blocked = true;
+  setTimeout(cashFinalize, 0);
+  return 0;
+}
 function cashDelta(delta, acct) {
   const d = cash2(delta);
   if (!d) return 0;
+  if (CASH_TX == null) { try { CASH_TX = JSON.stringify(state); } catch (e) { CASH_TX = null; } }
   if (!state.cashParts || typeof state.cashParts !== "object" || Array.isArray(state.cashParts)) {
     state.cashParts = normCashParts(null, state.cash);
   }
@@ -4541,7 +4560,7 @@ function openCashEntryForm() {
     field("记入账户", '<select name="account">' + cashAccountOptions("", false) + "</select>") +
     field("日期", '<input name="date" type="date" required value="' + todayISO() + '">') +
     field("备注", '<input name="note" maxlength="40" placeholder="选填，如 工资 / 房租">') +
-    '<p class="hint">收入加到这个账户，支出从它扣；支出可以把账户扣成负数（说明透支了）。删掉这笔记录，金额会原样退回去。</p>';
+    '<p class="hint">收入加到这个账户，支出从它扣；四个账户都不允许透支，余额不够会拒绝并告诉你还差多少。删掉这笔记录，金额会原样退回去。</p>';
   Sheet.open("记一笔 · v" + APP_VERSION, body, function (v) {
     const t = numText(v.amount);
     if (!t.ok) { toast("金额填的不是数字"); return false; }
