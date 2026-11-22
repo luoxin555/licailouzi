@@ -137,6 +137,15 @@ html[data-theme="dark"] .btn.primary{color:#0b0e12}
   border-radius:var(--r-sm);background:var(--card2);border:1px dashed var(--line);font-size:12px;color:var(--muted)}
 .cash-div b{font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}
 .cash-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.cash-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.cash-acct{display:flex;flex-direction:column;gap:6px;padding:11px 12px;border-radius:12px;
+  background:var(--card2);border:1px solid color-mix(in srgb,var(--line) 55%,transparent);min-width:0}
+.cash-acct-head{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.cash-acct-head span{font-size:12px;color:var(--muted);white-space:normal;overflow-wrap:anywhere;line-height:1.35}
+.cash-acct-head .mini{flex:none;height:22px;padding:0 8px;font-size:11px}
+.cash-acct b.num{font-size:19px;letter-spacing:-.5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.cash-acct.neg b.num{color:var(--up)}
+@media (max-width:360px){.cash-grid{grid-template-columns:1fr}.cash-acct b.num{font-size:18px}}
 .cash-part{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:7px 10px;
   border-radius:10px;background:var(--card2);border:1px solid var(--line);font-size:11.5px;color:var(--muted);min-width:0}
 .cash-part span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -745,7 +754,6 @@ img,svg,canvas,video{max-width:100%}
           <div class="cash-grid" id="cashPageParts"></div>
           <div class="cash-div"><span>投资分红（来自投资）</span><b class="num up" id="cashPageDiv">¥0.00</b></div>
           <p class="hint" style="margin-top:10px">四个账户的合计就是总览里的「现金」。借出去会从<b>现金存款</b>扣，不够再依次动银行卡、微信、支付宝；收回本金加回<b>现金存款</b>。利息不经过现金，单独算到「利息」里计入总资产。投资分红只做展示，不并入上面四个账户。</p>
-          <button type="button" class="btn small" id="btnCashEdit" style="width:100%;margin-top:10px">调整四个账户金额</button>
         </div>
         <div id="investPane" hidden>
           <div class="stats" id="invStats"></div>
@@ -1184,7 +1192,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.68";
+const APP_VERSION = "2026-11-20.70";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -2022,7 +2030,7 @@ function renderOverview() {
     { k: "定存", v: t.principal, c: "var(--down)", go: "deposits", sub: "dep" },
     { k: "借出", v: t.loanBalance, c: "#7c4dff", go: "loans", sub: "" },
     { k: "利息", v: t.loanReceived, c: "#00b8a9", go: "loans", sub: "" },
-    { k: "投资", v: t.investPrincipal, c: "#ff8a3d", go: "invest", sub: "" },
+    { k: "投资", v: t.investPrincipal, c: "#ff8a3d", go: routeOf("投资").page, sub: routeOf("投资").sub },
     { k: "现金", v: t.cash, c: "var(--warn)", go: "deposits", sub: "cash" }
   ].filter(p => p.v > 0.004);
   const sum = parts.reduce((a, p) => a + p.v, 0);
@@ -2034,7 +2042,7 @@ function renderOverview() {
     allocEl.innerHTML = parts.map(p =>
       '<i style="width:' + (p.v / sum * 100).toFixed(2) + '%;background:' + p.c + '"></i>').join("");
     legendEl.innerHTML = parts.map(p =>
-      '<span data-goto="' + p.go + '" data-goto-sub="' + esc(p.sub || "") + '" role="button" tabindex="0" aria-label="查看' + esc(p.k) + '明细">' +
+      (function () { const r = routeOf(p.k); return '<span data-goto="' + r.page + '" data-goto-sub="' + esc(r.sub || "") + '" role="button" tabindex="0" aria-label="查看' + esc(p.k) + '明细">'; })() +
       '<i class="dot" style="background:' + p.c + '"></i>' + p.k +
       '<em>' + money(p.v, 0) + ' · ' + (p.v / sum * 100).toFixed(1) + '%</em></span>').join("");
   }
@@ -2659,8 +2667,11 @@ function renderCashPane() {
   const grid = $("#cashPageParts");
   if (grid) {
     grid.innerHTML = CASH_KEYS.map(function (k) {
-      return '<div class="cash-part' + (num(p[k]) < 0 ? " neg" : "") + '"><span>' + CASH_LABEL[k] +
-        '</span><b class="num">' + money(p[k]) + "</b></div>";
+      const isBank = k === "bank";
+      return '<div class="cash-acct' + (num(p[k]) < 0 ? " neg" : "") + '">' +
+        '<div class="cash-acct-head"><span>' + CASH_LABEL[k] + "</span>" +
+          (isBank ? '<button type="button" class="mini" data-bank="manage">管理</button>' : "") + "</div>" +
+        '<b class="num">' + money(p[k]) + "</b></div>";
     }).join("");
   }
   const bar = $("#cashPageBar");
@@ -4299,44 +4310,19 @@ function cashLogRows(limit) {
 function renderCashLogPage() {
   const anchorEl = $("#cashPageDiv");
   if (!anchorEl || !anchorEl.parentNode) return;
-  const hostCard = anchorEl.closest(".card") || anchorEl.parentNode;
+  const pane = $("#cashPane") || anchorEl.parentNode;
   let box = $("#cashLogPage");
   if (!box) {
     box = document.createElement("div");
     box.id = "cashLogPage";
     box.className = "card";
     box.style.marginTop = "10px";
-    hostCard.parentNode.insertBefore(box, hostCard.nextSibling);
+    pane.appendChild(box);          /* 只在「现金」窗口里，切到别的页签一起隐藏 */
   }
   box.innerHTML = '<div class="cash-log-head" style="margin-top:0;border-top:0;padding-top:0"><b>收支记录</b>' +
     '<button type="button" class="btn small ghost" data-cashtransfer="1">⇄ 互转</button>' +
     '<button type="button" class="btn small" data-cash="add">＋ 记一笔</button></div>' +
     cashLogRows();
-}
-function openCashForm() {
-  const p = normCashParts(state.cashParts, state.cash);
-  const cards = Array.isArray(state.bankCards) ? state.bankCards : [];
-  const row = function (k) {
-    const isBank = k === "bank";
-    return '<div class="cash-row acct readonly"><label>' + CASH_LABEL[k] +
-      (isBank && cards.length > 1 ? '<i class="hint" style="font-style:normal"> ' + cards.length + " 张</i>" : "") + "</label>" +
-      '<div class="cash-in"><span>¥</span><b class="num' + (num(p[k]) < 0 ? " down" : "") + '">' + money(p[k]) + "</b>" +
-      (isBank ? '<button type="button" class="mini" data-bank="manage">管理</button>' : "") + "</div></div>" +
-      (isBank && cards.length ? '<div class="bank-inline">' + cards.slice(0, 3).map(function (c) {
-        return "<span>" + esc(c.name) + " <b>" + money(c.amount) + "</b></span>";
-      }).join("") + (cards.length > 3 ? "<span>等 " + cards.length + " 张</span>" : "") + "</div>" : "");
-  };
-  const body =
-    '<div class="cash-total"><span>现金合计</span><b class="num" id="cashSum">' + money(cashSum(p)) + "</b></div>" +
-    '<p class="hint">四个账户只能通过「记一笔」加减，<b>不能直接改金额</b>——这样每一笔变动都有出处。' +
-    "借出、收回本金也会按借款上选的「扣款账户」自动动这里；利息不经过现金。</p>" +
-    '<div class="cash-bar" id="cashBar" aria-hidden="true">' + cashBarHTML(p) + "</div>" +
-    CASH_KEYS.map(row).join("") +
-    '<div class="cash-row readonly"><label>投资分红</label>' +
-      '<div class="cash-in"><span>¥</span><b class="num up" id="cashDivTotal">' + money(investmentTotals().div) + "</b></div></div>" +
-    '<p class="hint">「投资分红」只读，金额来自「投资 → 分红」的合计，<b>不并入</b>上面四个账户。</p>' +
-    "";
-  Sheet.open("现金 · v" + APP_VERSION, body, function () { return true; }, "关闭");
 }
 /* 银行卡明细：这里的金额就是「银行卡存款」的四个格子之一，改这里等于改那一格 */
 /* 账户互转：一转一出两条锁定流水，四个账户之间随便搬 */
@@ -4379,7 +4365,7 @@ function openBankCards() {
     '<button type="button" class="btn small" data-bank="add" style="width:100%;margin-top:10px">＋ 添加银行卡</button>' +
     '<p class="hint">这里改的是每张卡的余额，合计会自动等于「银行卡存款」那一格；' +
     "基金/股票的买卖如果指定了某张卡，也会记到这张卡的余额上。</p>";
-  Sheet.open("银行卡 · v" + APP_VERSION, body, function () { return true; }, "关闭", function () { openCashForm(); });
+  Sheet.open("银行卡 · v" + APP_VERSION, body, function () { return true; }, "关闭", function () { renderCashPane(); });
 }
 function openBankCardForm(id) {
   const card = id ? bankCardById(id) : null;
@@ -4451,9 +4437,9 @@ function openCashEntryForm() {
     cashDelta(kind === "in" ? t.value : -t.value, v.account);
     commit();
     toast((kind === "in" ? "已记收入 " : "已记支出 ") + money(t.value) + " · " + cashAccountLabel(v.account));
-    setTimeout(openCashForm, 300);      /* 存完回到上层，接着记下一笔 */
+    setTimeout(function () { try { Sheet.close(); } catch (e) {} }, 300);
     return true;
-  }, "保存", function () { openCashForm(); });   /* 取消 / 叉 → 只回现金弹窗 */
+  }, "保存");
 }
 function deleteCashLog(id) {
   const rec = (state.cashLog || []).filter(function (x) { return x.id === id; })[0];
@@ -4466,7 +4452,7 @@ function deleteCashLog(id) {
       state.cashLog = (state.cashLog || []).filter(function (x) { return x.id !== id; });
       commit();
       toast("已删除并退回");
-      setTimeout(openCashForm, 300);
+      setTimeout(function () { try { Sheet.close(); } catch (e) {} }, 300);
       return true;
     }, "删除");
 }
@@ -4489,7 +4475,7 @@ function openCashLogDetail(id) {
     (x.locked ? '<p class="hint">这笔是借款 / 项目款项自动记的，不能单独删——回源头改或删，这里会跟着变。</p>'
       : '<p class="hint">这条是手动记的，可以在列表里直接删掉。</p>');
   /* 关闭 / 取消 / 叉都只回上一层（收支记录列表），不要一路关到底 */
-  const back = function () { setTimeout(openCashForm, 60); };
+  const back = function () { setTimeout(function () { try { Sheet.close(); } catch (e) {} }, 60); };
   Sheet.open("收支详情 · v" + APP_VERSION, body, function () { back(); return true; }, "关闭", back);
 }
 function openHiddenList() {
@@ -6605,6 +6591,21 @@ function loadDemo() {
 /* ============ 交互 ============ */
 /** 跳到某个页签；给了 id 就再滚到那一笔、展开折叠、闪两下。
  *  页签或那一笔不存在时只做能做的部分，不报错、不把界面切成空白。 */
+/* 资产类别 → 目标页面/窗口。新增资产类别只在这里加一行，总览、资产分布、
+   以后任何「点一下跳过去」的入口都自动生效，不会再出现点了没反应 */
+const ASSET_ROUTE = {
+  "基金": { page: "holdings", sub: "fund" },
+  "股票": { page: "holdings", sub: "stock" },
+  "黄金": { page: "holdings", sub: "gold" },
+  "定存": { page: "deposits", sub: "dep" },
+  "现金": { page: "deposits", sub: "cash" },
+  "投资": { page: "deposits", sub: "invest" },
+  "借出": { page: "loans", sub: "" },
+  "利息": { page: "loans", sub: "" },
+  "借入": { page: "loans", sub: "borrow" },
+  "项目款项": { page: "loans", sub: "collect" }
+};
+function routeOf(kind) { return ASSET_ROUTE[kind] || { page: "overview", sub: "" }; }
 function gotoSection(name, id, sub) {
   if (!$("#view-" + name)) return;
   /* 从弹窗里点过来的：先把弹窗收起来，别让浮层挡住目标 */
@@ -6983,8 +6984,6 @@ $("#btnIncomeCal").addEventListener("click", openIncomeCal);
 $("#btnRefreshAll").addEventListener("click", function () { refreshAll(false); });
 const btnBatchNav = $("#btnBatchNav");
 if (btnBatchNav) btnBatchNav.addEventListener("click", function () { openBatchNav(); });
-const btnCashEdit = $("#btnCashEdit");
-if (btnCashEdit) btnCashEdit.addEventListener("click", function () { openCashForm(); });
 $("#btnExport").addEventListener("click", exportJSON);
 $("#btnCopy").addEventListener("click", copyBackup);
 $("#btnImportFile").addEventListener("click", () => $("#fileInput").click());
