@@ -57,6 +57,8 @@ h1,h2,h3,p,ul{margin:0}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 input,select,textarea{font:inherit;color:inherit;font-size:16px!important}
 input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.field select,.field option{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rate-unit{display:flex;align-items:center;justify-content:center;padding:0 12px;font-size:14px;color:var(--muted);white-space:nowrap;flex:0 0 auto}
 .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .up{color:var(--up)}
 .down{color:var(--down)}
@@ -433,7 +435,7 @@ html[data-theme="dark"] .tag.gold{background:color-mix(in srgb,#f0c040 20%,trans
   pointer-events:none}
 .overlay.show{opacity:1;pointer-events:auto}
 @media (min-width:620px){.overlay{align-items:center;padding:20px}}
-.sheet{position:relative;width:100%;max-width:520px;max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;
+.sheet{position:relative;width:100%;max-width:580px;max-height:92vh;max-height:92dvh;display:flex;flex-direction:column;
   background:var(--card);border-radius:22px 22px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,.2);
   transform:translateY(24px);transition:transform .24s cubic-bezier(.2,.9,.3,1)}
 /* 移动端底部弹层的把手，纯视觉；桌面居中弹窗不显示 */
@@ -1106,7 +1108,7 @@ function normDebts(list) {
       name: asStr(l.name || l.lender || l.borrower),
       amount: Math.max(0, num(l.amount)),
       rate: Math.max(0, num(l.rate)),
-      rateUnit: l.rateUnit === "month" ? "month" : "year",
+      rateUnit: l.rateUnit === "month" ? "month" : (l.rateUnit === "day" ? "day" : "year"),
       startDate: isDateStr(l.startDate) ? l.startDate : todayISO(),
       termValue: Math.max(1, num(l.termValue) || 12),
       termUnit: ["day", "month", "year"].indexOf(l.termUnit) >= 0 ? l.termUnit : "month",
@@ -1187,7 +1189,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.77";
+const APP_VERSION = "2026-11-20.85";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -1520,7 +1522,7 @@ function normalize(raw) {
       termValue: Math.max(1, Math.round(num(l.termValue) || 12)),
       termUnit: ["month", "year", "day"].indexOf(l.termUnit) >= 0 ? l.termUnit : "month",
       rate: Math.max(0, Math.min(LOAN_MAX_RATE, num(l.rate))),
-      rateUnit: l.rateUnit === "month" ? "month" : "year",
+      rateUnit: l.rateUnit === "month" ? "month" : (l.rateUnit === "day" ? "day" : "year"),
       phone: asStr(l.phone),
       overdueRate: Math.max(0, Math.min(LOAN_MAX_RATE, num(l.overdueRate))),
       photos: (Array.isArray(l.photos) ? l.photos : []).filter(function (x) { return x && x.data; }).slice(0, 12)
@@ -1529,7 +1531,7 @@ function normalize(raw) {
       note: asStr(l.note),
       updatedAt: Math.max(0, num(l.updatedAt)),
       cashBooked: l.cashBooked !== false,
-      cashAccount: CASH_KEYS.indexOf(asStr(l.cashAccount)) >= 0 ? asStr(l.cashAccount) : ""
+      cashAccount: (function (v) { v = asStr(v); return (CASH_KEYS.indexOf(v) >= 0 || /^bank:.+/.test(v)) ? v : ""; })(l.cashAccount)
     };
   });
   /* 投资：项目 + 逐笔分红。分红必须 > 0，日期必须合法 */
@@ -1744,11 +1746,14 @@ function depositCalc(dep, todayStr) {
 }
 /* 借出款计算：未还本金 + 按「未还本金分段」算到今天的单利利息 */
 /* 利率单位：只存用户填的那个数 + 单位，年化在算的时候乘 12，展示时写清是年还是月 */
-function annualRateOf(x) { return Math.max(0, num(x && x.rate)) * ((x && x.rateUnit) === "month" ? 12 : 1); }
+function annualRateOf(x) {
+  const u = x && x.rateUnit;
+  return Math.max(0, num(x && x.rate)) * (u === "month" ? 12 : (u === "day" ? 365 : 1));
+}
 function rateText(x) {
-  const unit = (x && x.rateUnit) === "month" ? "月利率" : "年利率";
+  const u = (x && x.rateUnit) === "month" ? "月利率" : ((x && x.rateUnit) === "day" ? "日利率" : "年利率");
   const a = num(x && x.rate).toFixed(2) + "%";
-  return unit + " " + a + ((x && x.rateUnit) === "month" ? "（年化 " + annualRateOf(x).toFixed(2) + "%）" : "");
+  return u + " " + a + ((x && x.rateUnit) && x.rateUnit !== "year" ? "（年化 " + annualRateOf(x).toFixed(2) + "%）" : "");
 }
 function loanCalc(l, todayStr) {
   const basis = state.settings.basis === 360 ? 360 : 365;
@@ -1775,8 +1780,8 @@ function loanCalc(l, todayStr) {
   const receivedCash = repaidPrincipal + interestPaid;                                                // 实际收款 = 本金 + 利息
   const balance = Math.max(0, P - repaidPrincipal);
   let interest = 0, bal = P, from = l.startDate;
-  reps.concat([{ kind: "principal", amount: 0, date: today }]).forEach(function (x) {
-    let to = x.date < today ? x.date : today;      // 未来日期的记录不计息
+  reps.concat([{ kind: "principal", amount: 0, date: maturity }]).forEach(function (x) {
+    let to = x.date < maturity ? x.date : maturity;   // 未来日期的记录不计息，最多算到到期日
     if (to < from) to = from;                       // 早于借款日的记录也不倒算
     if (bal > 0 && r > 0 && to > from) interest += bal * r * daysBetween(from, to) / basis;
     if (isP(x)) bal = Math.max(0, bal - x.amount);
@@ -1785,11 +1790,16 @@ function loanCalc(l, todayStr) {
   /* 逾期利息（罚息）：只对「已过到期日且本金未还清」的这段天数计，利率单独填 */
   const odRate = Math.max(0, num(l.overdueRate)) / 100;
   const odDays = (today > maturity && balance > 0.004) ? Math.max(0, daysBetween(maturity, today)) : 0;
-  const penalty = (odRate > 0 && odDays > 0) ? balance * odRate * odDays / basis : 0;
-  const interestDue = Math.max(0, interest - interestPaid + penalty);   // 应计但还没收到的利息（含罚息）
+  const effOdRate = odRate > 0 ? odRate : r;      /* 没填逾期利率就沿用原利率，继续计息 */
+  const penalty = odDays > 0 ? balance * effOdRate * odDays / basis : 0;   /* 到期后按逾期利率继续计息 */
+  /* 应收利息 = 本金 × 年利率 × 年限（年限至少到到期日，到期不还就继续算到今天），再减掉已经付掉的利息 */
+  /* 应收利息 = 按未还本金分段计息后相加（还一次本金就重新分段），再减掉已经付掉的利息。
+     例：10000 元 12 个月 1.75%，2 个月后还 2000 → 10000×1.75%×2/12 + 8000×1.75%×10/12 */
+  const wholeInterest = interest;
+  const interestDue = Math.max(0, interest + penalty - interestPaid);   // 应计但还没收到的利息（含罚息）
   const overdueDays = (today > maturity && balance > 0.004) ? Math.max(0, daysBetween(maturity, today)) : 0;
   return {
-    maturity, totalDays, repaid, repaidPrincipal, interestPaid, receivedCash, balance, interest, interestDue, basis,
+    maturity, totalDays, repaid, repaidPrincipal, interestPaid, receivedCash, balance, interest, interestDue, wholeInterest, basis,
     total: balance + interestDue,
     overpaid: Math.max(0, repaidPrincipal - P), penalty: penalty, overdueRate: num(l.overdueRate),
     overdueDays, matured: today >= maturity,
@@ -1984,7 +1994,7 @@ function profitBreakdown() {
   push("cashin", "现金记一笔收入", income, "已到账（手工记账，不含自动流水）");
   let paid = 0;
   live(state.loans).forEach(function (l) { paid += loanCalc(l).interestPaid; });
-  push("loan", "借出款已付利息", paid, "已收（未收利息不计）");
+  push("loan", "借出款已付利息", paid, "已收（应收利息不计）");
   let collected = 0;
   live(state.collections).forEach(function (c) { collected += collectGot(c); });
   push("collect", "项目款项实际入账", collected, "已入账（按实收金额）");
@@ -2001,7 +2011,7 @@ function openProfitDetail() {
   Sheet.open("累计收益 · v" + APP_VERSION,
     '<div class="cal-sum" style="margin-bottom:10px"><div class="cal-kv"><span>累计收益合计</span><b class="' +
       plClass(b.total) + '">' + signedMoney(b.total) + "</b></div></div>" + rows +
-    '<p class="hint" style="margin-top:10px">八项相加就是总览「累计收益」那一格。基金 / 股票 / 黄金按「市值 − 成本 + 已实现」算，含还没卖出的浮动盈亏；定存按天应计，未到账也算；投资分红、现金记一笔收入、借出已付利息、项目款项入账都按已到账金额。未收利息、定存未产生利息、投资本金、借入利息不计入。</p>',
+    '<p class="hint" style="margin-top:10px">八项相加就是总览「累计收益」那一格。基金 / 股票 / 黄金按「市值 − 成本 + 已实现」算，含还没卖出的浮动盈亏；定存按天应计，未到账也算；投资分红、现金记一笔收入、借出已付利息、项目款项入账都按已到账金额。应收利息、定存未产生利息、投资本金、借入利息不计入。</p>',
     function () { return true; }, "关闭");
 }
 function totals() {
@@ -2022,7 +2032,7 @@ function totals() {
   });
   /* 借款借出 = 现金 → 借出（未还本金）：一头减一头加，总资产不变，不会凭空多出一笔钱；
      收到本金 = 借出 → 现金，同样不变；已收利息没进现金，单独作为「利息」计入总资产；
-     未收利息只是应收，不进任何合计 */
+     应收利息只是应收，不进任何合计 */
   let loanBalance = 0, loanDue = 0, loanAccrued = 0, loanReceived = 0, loanRepaid = 0;
   live(state.loans).forEach(function (l) {
     const c = loanCalc(l);
@@ -2041,7 +2051,7 @@ function totals() {
   const floatPL = plSum;
   /* 累计收益 = 持仓浮动盈亏（未实现）+ 已实现盈亏（卖出差价 / 现金分红 / 红利再投资）
      + 定存已产生利息（权责发生制，含未到账）+ 借出已收利息（已进现金）
-     不计入：未收利息（只是应收）、定存未产生利息、对外投资分红与本金（只做记录）、借入利息（负债成本） */
+     不计入：应收利息（只是应收）、定存未产生利息、对外投资分红与本金（只做记录）、借入利息（负债成本） */
   const profit = profitBreakdown().total;
   /* 收益率分母 = 持仓成本 + 定存本金 + 借出未还本金（都是「投出去的钱」） */
   const invested = cost + principal + loanBalance;
@@ -2120,7 +2130,7 @@ function renderOverview() {
     ["定存本金", money(t.principal), "", "", null, ' data-ovstat="principal"'],
     ["定存应计利息", money(t.accrued), "up", "", null, ' data-ovstat="accrued"'],
     /* 借款里「已付利息」记录的合计：和资产分布里的「利息」是同一个数，同源同口径，不另存一份 */
-    ["已付利息", money(t.loanReceived), t.loanReceived > 0 ? "down" : "", "借款里记的已付利息合计，已计入总资产的「利息」；未收利息不算", null, ' data-ovstat="loanReceived"'],
+    ["已付利息", money(t.loanReceived), t.loanReceived > 0 ? "down" : "", "借款里记的已付利息合计，已计入总资产的「利息」；应收利息不算", null, ' data-ovstat="loanReceived"'],
     ["现金 / 备用金", money(t.cash), "", "", null, ' data-ovstat="cash"'],
     ["累计分红", money(dv.total), dv.total > 0 ? "up" : "", "", null, ' data-ovstat="dividend"']
   ];
@@ -2875,7 +2885,7 @@ function renderLoans() {
     ["已付利息", money(paidInt), paidInt > 0 ? "down" : "", "收到的每一笔利息", null, ' data-loan="interest"'],
     ["实际收款", money(repaidP + paidInt), "", "本金 + 利息", null, ' data-loan="received"'],
     ["未还本金", money(balance), "", "还欠着的本金", null, ' data-loan="balance"'],
-    ["未收利息", money(due), due > 0 ? "up" : "", "只是应收，不计入总资产", null, ' data-loan="due"'],
+    ["应收利息", money(due), due > 0 ? "up" : "", "本金 × 年利率 × 年限 − 已付利息，只是应收，不计入总资产", null, ' data-loan="due"'],
     ["逾期", overdue + " 笔", overdue > 0 ? "warn" : "", "过了到期日还欠着的", null, ' data-loan="overdue"'],
     ["已完成", done + " 笔", done > 0 ? "down" : "", "本金和利息都收齐了", null, ' data-loan="done"']
   ]);
@@ -2890,11 +2900,16 @@ function renderLoans() {
   box.innerHTML = rows.map(function (x) {
     const l = x.l, c = x.c;
     const open = isOpen("loan", l.id);
-    const settled = c.balance <= 0.004;
-    const tag = settled ? "已结清" : (c.overdueDays > 0 ? "逾期 " + c.overdueDays + " 天" : "剩余 " + Math.max(0, daysBetween(today, c.maturity)) + " 天");
+    /* 本金、利息各自算清：只有两样都清才叫已结清 */
+    const pClear = c.balance <= 0.004, iClear = c.interestDue <= 0.004;
+    const settled = pClear && iClear;
+    const tag = settled ? "已结清"
+      : (pClear ? "本金已结清，利息未结清"
+      : (iClear ? "利息已结清，本金未结清"
+      : (c.overdueDays > 0 ? "逾期 " + c.overdueDays + " 天" : "剩余 " + Math.max(0, daysBetween(today, c.maturity)) + " 天")));
     const tone = settled ? "down" : (c.overdueDays > 0 ? "warn" : "up");
     const rowOf = function (r) {
-      return '<div class="rep-row"><span class="rep-d">' + esc(r.date) + '</span>' +
+      return '<div class="rep-row" data-id="' + esc(l.id) + '" data-kind="loan"><span class="rep-d">' + esc(r.date) + '</span>' +
         '<b class="num">' + money(r.amount) + '</b>' +
         '<em>' + esc(r.note || (r.kind === "principal" ? "本金" : "利息")) + '</em>' +
         '<button type="button" class="mini" data-repedit="' + esc(r.id) + '">改</button>' +
@@ -2919,7 +2934,7 @@ function renderLoans() {
       '</div>' +
       '<div class="item-sum">' +
         '<span>未还本金 <i>' + money(c.balance, 0) + '</i></span>' +
-        '<span>年利率 <i>' + num(l.rate).toFixed(2) + '%</i></span>' +
+        '<span>' + rateText(l) + '</span>' +
         '<span>到期 <i>' + esc(c.maturity) + '</i></span>' +
         (c.overpaid > 0.004 ? '<span class="warn">多收 <i>' + money(c.overpaid) + '</i></span>' : '') +
       '</div>' +
@@ -2930,19 +2945,19 @@ function renderLoans() {
         '<div><span>借款金额</span><b class="num">' + money(l.amount) + '</b></div>' +
         '<div><span>借款时间</span><b class="num">' + esc(l.startDate) + '</b></div>' +
         '<div><span>借款期限</span><b class="num">' + termLabel(l.termValue, l.termUnit) + '</b></div>' +
-        '<div><span>年利率</span><b class="num">' + num(l.rate).toFixed(2) + '%</b></div>' +
+        '<div><span>利率</span><b class="num">' + rateText(l) + '</b></div>' +
         '<div><span>已还本金</span><b class="num down">' + money(c.repaidPrincipal) + '</b></div>' +
         '<div><span>已付利息</span><b class="num down">' + money(c.interestPaid) + '</b></div>' +
         '<div><span>实际收款</span><b class="num">' + money(c.receivedCash) + '</b></div>' +
         '<div><span>未还本金</span><b class="num">' + money(c.balance) + '</b></div>' +
-        '<div title="只是应收，不计入总资产"><span>未收利息</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
+        '<div title="只是应收，不计入总资产"><span>应收利息</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
         '<div><span>本息合计</span><b class="num">' + money(c.total) + '</b></div>' +
         '<div><span>到期日</span><b class="num">' + esc(c.maturity) + '</b></div>' +
         (num(l.overdueRate) > 0 ? '<div><span>逾期利率</span><b class="num">' + num(l.overdueRate).toFixed(2) + '%／年 · 罚息 ' + money(c.penalty) + '</b></div>' : '') +
         (l.phone ? '<div><span>联系电话</span><b class="num">' + esc(l.phone) + '</b></div>' : '') +
       '</div>' +
       reps +
-      '<div class="photo-cell" style="margin-top:10px"><button type="button" class="btn small" data-photo="open" data-id="' + esc(l.id) + '" data-kind="loan">照片 ' +
+      '<div style="margin-top:8px"><button type="button" class="mini" data-photo="open" data-id="' + esc(l.id) + '" data-kind="loan">照片 ' +
         ((l.photos || []).length ? "（" + l.photos.length + " 张）" : "· 上传 / 下载") + '</button></div>' +
       (l.note ? '<p class="hint note expandable" data-note="' + esc(l.id) + '" data-notekind="loan" role="button" tabindex="0">' + esc(l.note) + '</p>' : '') +
       itemFoot('<span class="src manual">' + (c.repayCount
@@ -2972,8 +2987,12 @@ function setLoanTab(v) {
 /* 借款卡片（借出、借入共用一套渲染，只换文案方向） */
 function debtCardHTML(l, c, open, kind) {
   const today = todayISO();
-  const settled = c.balance <= 0.004;
-  const tag = settled ? "已结清" : (c.overdueDays > 0 ? "逾期 " + c.overdueDays + " 天" : "剩余 " + Math.max(0, daysBetween(today, c.maturity)) + " 天");
+  const pClear = c.balance <= 0.004, iClear = c.interestDue <= 0.004;
+  const settled = pClear && iClear;
+  const tag = settled ? "已结清"
+    : (pClear ? "本金已结清，利息未结清"
+    : (iClear ? "利息已结清，本金未结清"
+    : (c.overdueDays > 0 ? "逾期 " + c.overdueDays + " 天" : "剩余 " + Math.max(0, daysBetween(today, c.maturity)) + " 天")));
   const tone = settled ? "down" : (c.overdueDays > 0 ? "warn" : "up");
   const out = kind === "borrow";
   const who = l.name || (out ? "未填出借人" : "未填借款人");
@@ -3011,7 +3030,7 @@ function debtCardHTML(l, c, open, kind) {
       '<div><span>已还本金</span><b class="num down">' + money(c.repaidPrincipal) + '</b></div>' +
       '<div><span>' + (out ? "已付利息" : "已付利息") + '</span><b class="num down">' + money(c.interestPaid) + '</b></div>' +
       '<div><span>未还本金</span><b class="num">' + money(c.balance) + '</b></div>' +
-      '<div><span>' + (out ? "未付利息" : "未收利息") + '</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
+      '<div><span>' + (out ? "未付利息" : "应收利息") + '</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
       '<div><span>到期日</span><b class="num">' + esc(c.maturity) + '</b></div>' +
     '</div>' +
     '<div class="rep-box"><div class="rep-head"><span>还款（本金）· ' + c.principalCount + ' 笔</span>' +
@@ -3020,7 +3039,7 @@ function debtCardHTML(l, c, open, kind) {
     '<div class="rep-box"><div class="rep-head"><span>已付利息 · ' + c.interestCount + ' 笔</span>' +
       '<button type="button" class="mini" data-act="addint" data-id="' + esc(l.id) + '" data-kind="' + kind + '">＋ 记一笔</button></div>' +
       (iRows ? '<div class="rep-list">' + iRows + '</div>' : '<p class="hint">还没有付息记录</p>') + '</div>' +
-    '<div class="photo-cell" style="margin-top:10px"><button type="button" class="btn small" data-photo="open" data-id="' + esc(l.id) + '" data-kind="' + kind + '">照片 ' +
+    '<div style="margin-top:8px"><button type="button" class="mini" data-photo="open" data-id="' + esc(l.id) + '" data-kind="' + kind + '">照片 ' +
       (photoN ? "（" + photoN + " 张）" : "· 上传 / 下载") + '</button></div>' +
     (l.note ? '<p class="hint note expandable" data-note="' + esc(l.id) + '" data-notekind="' + kind + '" role="button" tabindex="0">' + esc(l.note) + '</p>' : '') +
     '<div class="row-actions"><button type="button" class="mini" data-edit="' + esc(l.id) + '" data-kind="' + kind + '">编辑</button>' +
@@ -3112,7 +3131,7 @@ function renderCollections() {
       '<div class="rep-box"><div class="rep-head"><span>入账明细 · ' + (c.entries || []).length + ' 笔</span>' +
         '<button type="button" class="mini" data-centry="add" data-id="' + esc(c.id) + '">＋ 二次入账</button></div>' +
         (eRows ? '<div class="rep-list">' + eRows + '</div>' : '<p class="hint">还没有入账记录</p>') + '</div>' +
-      '<div class="photo-cell" style="margin-top:10px"><button type="button" class="btn small" data-photo="open" data-id="' + esc(c.id) + '" data-kind="collect">照片 ' +
+      '<div style="margin-top:8px"><button type="button" class="mini" data-photo="open" data-id="' + esc(c.id) + '" data-kind="collect">照片 ' +
         ((c.photos || []).length ? "（" + c.photos.length + " 张）" : "· 上传 / 下载") + '</button></div>' +
       (c.note ? '<p class="hint note expandable" data-note="' + esc(c.id) + '" data-notekind="collect" role="button" tabindex="0">' + esc(c.note) + '</p>' : '') +
       '<div class="row-actions"><button type="button" class="mini" data-edit="' + esc(c.id) + '" data-kind="collect">编辑</button>' +
@@ -3144,9 +3163,12 @@ function termField(l) {
     }).join("") + "</select></div>");
 }
 function rateField(l) {
-  return field("利率", '<div class="row2"><input type="text" inputmode="decimal" name="rate" value="' + esc(l ? num(l.rate) : "") + '"><select name="rateUnit">' +
-    '<option value="year"' + (!l || l.rateUnit !== "month" ? " selected" : "") + ">% / 年</option>" +
-    '<option value="month"' + (l && l.rateUnit === "month" ? " selected" : "") + ">% / 月</option></select></div>");
+  const u0 = l && l.rateUnit === "month" ? "month" : (l && l.rateUnit === "day" ? "day" : "year");
+  return field("利率", '<div class="row2"><input type="text" inputmode="decimal" name="rate" value="' + esc(l ? num(l.rate) : "") + '">' +
+    '<select name="rateUnit">' +
+    '<option value="year"' + (u0 === "year" ? " selected" : "") + ">% / 年</option>" +
+    '<option value="month"' + (u0 === "month" ? " selected" : "") + ">% / 月</option>" +
+    '<option value="day"' + (u0 === "day" ? " selected" : "") + ">% / 天</option></select></div>");
 }
 function openBorrowForm(id) {
   const l = id ? (state.borrowings || []).filter(function (x) { return x.id === id; })[0] : null;
@@ -3167,7 +3189,8 @@ function openBorrowForm(id) {
     rec.name = asStr(v.name); rec.amount = amt; rec.startDate = v.startDate;
     rec.termValue = Math.max(1, num(v.termValue) || 1);
     rec.termUnit = ["day", "month", "year"].indexOf(v.termUnit) >= 0 ? v.termUnit : "month";
-    rec.rate = Math.max(0, num(v.rate)); rec.rateUnit = v.rateUnit === "month" ? "month" : "year";
+    rec.rate = Math.max(0, num(v.rate));
+    rec.rateUnit = v.rateUnit === "month" ? "month" : (v.rateUnit === "day" ? "day" : "year");
     rec.cashAccount = asStr(v.cashAccount); rec.note = asStr(v.note);
     rec.phone = asStr(v.phone);
     /* 借进来的钱进现金：第一次保存时入账，之后改金额只补差额 */
@@ -3381,9 +3404,9 @@ const LOAN_DETAIL = {
   principal: { t: "借出本金", d: "每一笔借出去多少，按金额合计就是顶部那一格" },
   repaid: { t: "已还本金", d: "已经收回来的本金，一笔一行" },
   interest: { t: "已付利息", d: "已经收到的利息，一笔一行（0 元记录也会列出来）" },
-  received: { t: "实际收款", d: "本金 + 利息，按笔列出" },
+  received: { t: "实际收款", d: "同一笔的还本金和付利息合成一行：本金多少、利息多少" },
   balance: { t: "未还本金", d: "还欠着的本金" },
-  due: { t: "未收利息", d: "应计但还没收到的利息。只是应收，不计入总资产" },
+  due: { t: "应收利息", d: "本金 × 年利率 × 年限 − 已付利息。只是应收，不计入总资产" },
   overdue: { t: "逾期", d: "过了到期日还欠着本金的借款" },
   done: { t: "已完成", d: "本金和利息都收齐了（利率 0 的借款，利息天然为 0，还清本金即完成）" }
 };
@@ -3394,10 +3417,26 @@ function loanDetailRows(kind) {
   live(state.loans).forEach(function (l) {
     const c = loanCalc(l);
     const who = l.borrower || "未填借款人";
-    const base = l.startDate + " 起 · " + termLabel(l.termValue, l.termUnit) + " · 年利率 " + num(l.rate) + "%";
+    const base = l.startDate + " 起 · " + termLabel(l.termValue, l.termUnit) + " · " + rateText(l);
     if (kind === "principal") {
       out.push({ t: who, s: base, v: num(l.amount), id: l.id });
-    } else if (kind === "repaid" || kind === "interest" || kind === "received") {
+    } else if (kind === "received") {
+      /* 同一天里还本金和付利息算同一笔：合成一行，写清本金多少、利息多少 */
+      const byDate = new Map();
+      c.reps.forEach(function (r) {
+        const k = r.date;
+        const g = byDate.get(k) || { p: 0, i: 0, note: "" };
+        if (r.kind === "principal") g.p += r.amount; else g.i += r.amount;
+        if (r.note && !g.note) g.note = r.note;
+        byDate.set(k, g);
+      });
+      byDate.forEach(function (g, date) {
+        const bits = [];
+        if (g.p > 0.004) bits.push("本金 " + money(g.p));
+        if (g.i > 0.004) bits.push("利息 " + money(g.i));
+        out.push({ t: who, s: date + " · " + (bits.join(" + ") || "0 元") + (g.note ? " · " + g.note : ""), v: g.p + g.i, id: l.id });
+      });
+    } else if (kind === "repaid" || kind === "interest") {
       c.reps.forEach(function (r) {
         const isP = r.kind === "principal";
         if (kind === "repaid" && !isP) return;
@@ -3407,7 +3446,7 @@ function loanDetailRows(kind) {
     } else if (kind === "balance") {
       if (c.balance > 0.004) out.push({ t: who, s: "到期 " + c.maturity + " · 剩余 " + Math.max(0, daysBetween(today, c.maturity)) + " 天", v: c.balance, id: l.id });
     } else if (kind === "due") {
-      if (c.interestDue > 0.004) out.push({ t: who, s: "应计 " + money(c.interest) + " − 已收 " + money(c.interestPaid), v: c.interestDue, id: l.id });
+      if (c.interestDue > 0.004) out.push({ t: who, s: "应收 " + money(c.wholeInterest) + " − 已付 " + money(c.interestPaid), v: c.interestDue, id: l.id });
     } else if (kind === "overdue") {
       if (c.overdueDays > 0) out.push({ t: who, s: "到期 " + c.maturity + " · 逾期 " + c.overdueDays + " 天", v: c.balance, id: l.id });
     } else if (kind === "done") {
@@ -3498,6 +3537,44 @@ function render() {
 /* ============ 底部弹层 ============ */
 /** 弹窗里的主按钮（提交/确认）：统一一处查，避免各处理函数各写一遍选择器 */
 function sheetSubmitBtn() { return document.querySelector(".overlay button[type=submit]"); }
+/* 期限单位（年/月/天）与利率单位（%/年、%/月、%/天）各管各的：
+   切期限单位只折算期限数值，切利率单位只折算利率数值（保持年化不变），标题跟着利率单位走 */
+function bindTermUnit(ov) {
+  const form = ov && ov.querySelector("form");
+  if (!form) return;
+  const rf = function (u) { return u === "year" ? 1 : (u === "month" ? 12 : 365); };
+  const df = function (u) { return u === "year" ? 365 : (u === "month" ? 365 / 12 : 1); };
+  const word = function (u) { return u === "year" ? "年" : (u === "month" ? "月" : "天"); };
+  const rt = form.querySelector('[name="rate"]');
+  const ru = form.querySelector('[name="rateUnit"]');
+  const tv = form.querySelector('[name="termValue"]');
+  const titleEl = (rt && rt.closest(".field")) ? rt.closest(".field").querySelector("label") : null;
+  const setTitle = function (u) { if (titleEl) titleEl.textContent = "利率（%/" + word(u) + "）"; };
+  if (ru) {
+    ru.dataset.prev = ru.value || "year";
+    setTitle(ru.dataset.prev);
+    ru.addEventListener("change", function () {
+      const mo = ru.dataset.prev || "year", nu = ru.value;
+      if (mo !== nu && rt) {
+        const r = numText(rt.value);
+        if (r.ok && !r.empty) rt.value = String(Math.round(r.value * rf(mo) / rf(nu) * 10000) / 10000);
+      }
+      ru.dataset.prev = nu;
+      setTitle(nu);
+    });
+  }
+  if (form.querySelector('[name="termUnit"]') && tv) {
+    let prev = (form.querySelector('[name="termUnit"]:checked') || {}).value || "year";
+    form.addEventListener("change", function (e) {
+      if (!e.target || e.target.name !== "termUnit") return;
+      const nu = e.target.value;
+      if (nu === prev) return;
+      const t = numText(tv.value);
+      if (t.ok && !t.empty) tv.value = String(Math.max(1, Math.round(t.value * df(prev) / df(nu))));
+      prev = nu;
+    });
+  }
+}
 const Sheet = {
   el: null,
   open(title, body, onSubmit, submitText, onCancel) {
@@ -3555,6 +3632,7 @@ const Sheet = {
       if (r === false) return;
       Sheet.close();
     });
+    try { bindTermUnit(ov); } catch (e) { /* 没有期限单位的表单直接跳过 */ }
     return ov;
   },
   close(cancelled) {
@@ -4310,9 +4388,12 @@ function openDepositForm(id) {
 /* 账户下拉：四个大账户 + 每张银行卡（值 bank:<id>，cashDelta 认识） */
 function cashAccountChoices(withAuto) {
   const list = withAuto === false ? [] : [["", "自动（现金 → 银行卡 → 微信 → 支付宝）"]];
-  CASH_KEYS.forEach(function (k) { list.push([k, CASH_LABEL[k]]); });
+  const p = state.cashParts || {};
+  CASH_KEYS.forEach(function (k) {
+    list.push([k, CASH_LABEL[k] + " · " + (num(p[k]) < 0 ? "−" : "") + money(Math.abs(num(p[k])))]);
+  });
   (Array.isArray(state.bankCards) ? state.bankCards : []).forEach(function (c) {
-    list.push(["bank:" + c.id, "银行卡 · " + c.name]);
+    list.push(["bank:" + c.id, c.name + " · " + (num(c.amount) < 0 ? "−" : "") + money(Math.abs(num(c.amount)))]);
   });
   return list;
 }
@@ -4649,9 +4730,12 @@ function openLoanForm(id) {
     "</div>" +
     '<div class="field-row">' +
       field("借款期限", '<input name="termValue" type="text" inputmode="numeric" required value="' + (l ? l.termValue : 12) + '">') +
-      field("利率（%）", '<div class="row2"><input name="rate" type="text" inputmode="decimal" placeholder="如 5，可填 0" value="' + (l ? l.rate : "") + '">' +
-        '<select name="rateUnit"><option value="year"' + (!l || l.rateUnit !== "month" ? " selected" : "") + ">% / 年</option>" +
-        '<option value="month"' + (l && l.rateUnit === "month" ? " selected" : "") + ">% / 月</option></select></div>") +
+      field("利率", '<div class="row2"><input name="rate" type="text" inputmode="decimal" placeholder="如 5，可填 0" value="' + (l ? l.rate : "") + '">' +
+        '<select name="rateUnit">' +
+        '<option value="year"' + (!l || !l.rateUnit || l.rateUnit === "year" ? " selected" : "") + ">% / 年</option>" +
+        '<option value="month"' + (l && l.rateUnit === "month" ? " selected" : "") + ">% / 月</option>" +
+        '<option value="day"' + (l && l.rateUnit === "day" ? " selected" : "") + ">% / 天</option>" +
+        "</select></div>") +
     "</div>" +
     field("逾期利率（%，选填）", '<input name="overdueRate" type="text" inputmode="decimal" placeholder="逾期后按这个年利率算罚息，0 或留空不算" value="' + esc(l ? (l.overdueRate || "") : "") + '">') +
     field("期限单位", '<div class="seg">' +
@@ -4661,15 +4745,15 @@ function openLoanForm(id) {
     field("扣款账户", '<select name="cashAccount">' + cashAccountOptions(l ? l.cashAccount : "") + "</select>") +
     field("备注", '<input name="note" placeholder="选填，如 借条编号 / 用途" value="' + esc(l ? l.note : "") + '">') +
     '<p class="hint">到期日按借款时间加期限推算（月末不足取当月最后一天）。年利率填 0 表示不收到期利息；上限 ' + LOAN_MAX_RATE + '%。' +
-    '利息按单利、未还本金分段算到今天，还款在列表里点「还款」逐笔记录。</p>';
-  Sheet.open(l ? "编辑借款" : "新增借出款", body, function (v) {
+    '应收利息按单利、未还本金分段算到到期日（每还一笔从还款日起按剩下的本金算），到期未还按逾期利率继续计息；还款在列表里点「还款」逐笔记录。</p>';
+  const ovL = Sheet.open(l ? "编辑借款" : "新增借出款", body, function (v) {
     const borrower = String(v.borrower || "").trim();
     const phone = asStr(v.phone);
     if (phone && !/^[0-9+\-\s]{5,20}$/.test(phone)) { toast("电话号码格式不对"); return false; }
     const amtT = numText(v.amount), rateT = numText(v.rate), termT = numText(v.termValue);
     const startDate = String(v.startDate || "").trim();
     if (!borrower) { toast("请填借款人名称"); return false; }
-    const rateUnit = v.rateUnit === "month" ? "month" : "year";
+    const rateUnit = v.rateUnit === "month" ? "month" : (v.rateUnit === "day" ? "day" : "year");
     if (borrower.length > 30) { toast("借款人名称最多 30 个字"); return false; }
     if (!amtT.ok) { toast("借款金额填的不是数字"); return false; }
     if (amtT.empty || amtT.value <= 0) { toast("借款金额需大于 0"); return false; }
@@ -4727,16 +4811,25 @@ function saveRepayment(l, rep, payload) {
   const chk = validateRepayment(payload.kind, payload.amount);
   if (!chk.ok) { toast(chk.msg); return false; }
   const clean = { kind: chk.kind, amount: chk.amount, date: payload.date, note: String(payload.note || "") };
-  /* 只有本金还款会进现金：收回多少本金，现金就加多少（编辑时按差额补） */
-  const prev = rep && rep.kind !== "interest" ? num(rep.amount) : 0;
+  /* 方向按记账口径：借出收到本金/利息 → 现金增加（入到所选账户）；
+     借入还本金/付利息 → 现金减少（从所选账户扣）。本金和利息都真的动账户。 */
+  const isBorrow = (state.borrowings || []).some(function (x) { return x.id === l.id; });
+  const dir = isBorrow ? -1 : 1;
+  const rid = rep ? rep.id : uid();
+  /* 改之前先把上一次自动写的那笔流水整笔冲回去，避免重复入账 / 重复扣款 */
+  removeCashFlows("loan", rid, "");
   if (rep) Object.assign(rep, clean);
-  else l.repayments.push(Object.assign({ id: uid() }, clean));
-  if (chk.kind === "principal") cashDelta(chk.amount - prev, l.cashAccount);
+  else l.repayments.push(Object.assign({ id: rid }, clean));
+  cashDelta(dir * chk.amount, l.cashAccount);   /* 真的加到 / 扣掉所选账户 */
+  const who = isBorrow ? (l.name || "借入") : (l.borrower || "借出");
+  logCashFlow("loan", dir * chk.amount, l.cashAccount, clean.date,
+    (isBorrow ? "借入 · " : "借出 · ") + who + (chk.kind === "interest" ? " · 利息" : " · 本金"), rid);
   return true;
 }
 
 function openRepayForm(loanId, repId, kind) {
-  const l = state.loans.find(x => x.id === loanId);
+  /* 借出和借入共用这个表单：只查 loans 的话，借入那条永远「不存在」 */
+  const l = state.loans.find(x => x.id === loanId) || (state.borrowings || []).find(x => x.id === loanId);
   if (!l) { toast("这条借款已经不在了"); return; }
   if (!Array.isArray(l.repayments)) l.repayments = [];
   const c = loanCalc(l);
@@ -4755,7 +4848,7 @@ function openRepayForm(loanId, repId, kind) {
     (isP
       ? '<p class="hint">这一栏只记<b>本金</b>：只有它冲减未还本金，必须大于 0。收到利息请用另一个入口「记一笔已付利息」单独记。</p>'
       : '<p class="hint">这一栏只记<b>利息</b>：不冲减未还本金，可以是 0，不能为负。还回来的本金请用另一个入口「记一笔还款（本金）」单独记。</p>') +
-    "当前未还本金 <b>" + money(c.balance) + "</b>、未收利息 <b>" + money(c.interestDue) + "</b>。" +
+    "当前未还本金 <b>" + money(c.balance) + "</b>、应收利息 <b>" + money(c.interestDue) + "</b>。" +
     (isP ? "还款时间不能早于借款时间 " : "收息时间不能早于借款时间 ") + esc(l.startDate) + "，也不能晚于今天。";
   let ov = null;
   function showRepErr(msg) {
@@ -4793,7 +4886,7 @@ function openRepayForm(loanId, repId, kind) {
       const av = a.ok ? a.value : 0;
       sp.textContent = isP
         ? "将记为：还款本金 " + money(av) + "（未还本金剩 " + money(Math.max(0, c.balance - av)) + "）"
-        : "将记为：已付利息 " + money(av) + "（未收利息剩 " + money(Math.max(0, c.interestDue - av)) + "）";
+        : "将记为：已付利息 " + money(av) + "（应收利息剩 " + money(Math.max(0, c.interestDue - av)) + "）";
     }
     fa.addEventListener("input", paint);
     paint();
@@ -7033,15 +7126,22 @@ document.addEventListener("click", function (e) {
   if (rdel) {
     const host = rdel.closest("[data-id]");
     const lid = host && host.dataset.id;
-    const l0 = state.loans.find(x => x.id === lid);
+    /* 借入的还款行也在同一个列表里：只查 loans 会「点了没反应」 */
+    const l0 = state.loans.find(x => x.id === lid) || (state.borrowings || []).find(x => x.id === lid);
     const rec = l0 && (l0.repayments || []).find(x => x.id === rdel.getAttribute("data-repdel"));
     if (l0 && rec) {
       const isP = rec.kind !== "interest";
       Sheet.open(isP ? "撤销这笔还款" : "撤销这笔利息", '<p class="hint">确认删除 ' + esc(rec.date) + " 的" +
         (isP ? "还款本金 <b>" : "已付利息 <b>") + money(rec.amount) +
         "</b>？删除后未还本金和应计利息会重新计算，无法撤销。</p>", function () {
+          /* 已经删过就直接返回，避免重复回退现金 */
+          if (!(l0.repayments || []).some(x => x.id === rec.id)) return true;
           l0.repayments = l0.repayments.filter(x => x.id !== rec.id);
-          if (isP) cashDelta(-num(rec.amount), l0.cashAccount);   /* 撤销本金还款 → 现金退回借出状态 */
+          /* 先撤自动流水（含利息那条）；老数据没有流水才按方向兜底退 */
+          if (!removeCashFlows("loan", rec.id, "")) {
+            const isBorrow = (state.borrowings || []).some(x => x.id === l0.id);
+            cashDelta((isBorrow ? 1 : -1) * num(rec.amount), l0.cashAccount);
+          }
           touchRec(l0);
           commit();
           toast(isP ? "已撤销这笔还款" : "已撤销这笔利息");
@@ -7055,21 +7155,36 @@ document.addEventListener("click", function (e) {
   if (redit) {
     const host = redit.closest("[data-id]");
     const lid = host && host.dataset.id;
-    const l0 = state.loans.find(x => x.id === lid);
+    const l0 = state.loans.find(x => x.id === lid) || (state.borrowings || []).find(x => x.id === lid);
     const rec = l0 && (l0.repayments || []).find(x => x.id === redit.getAttribute("data-repedit"));
     if (l0 && rec) openRepayForm(lid, rec.id);
     return;
   }
 
+  /* 借出 / 借入 / 项目款项 列表里的「编辑」用的是 data-edit + data-kind，
+     之前没有对应分支 → 点了完全没反应 */
+  const edEl = e.target.closest("[data-edit]");
+  if (edEl) {
+    const eid = edEl.dataset.edit, ek = edEl.dataset.kind;
+    if (ek === "loan") openLoanForm(eid);
+    else if (ek === "borrow") openBorrowForm(eid);
+    else if (ek === "collect") openCollectForm(eid);
+    else if (ek === "deposit") openDepositForm(eid);
+    return;
+  }
   const act = e.target.closest("[data-act]");
   if (act) {
     const host = act.closest("[data-id]");
     const id = host && host.dataset.id;
     const a = act.dataset.act;
     const kind = state.loans.some(x => x.id === id) ? "loan"
-      : (state.deposits.some(x => x.id === id) ? "deposit" : "holding");
+      : ((state.borrowings || []).some(x => x.id === id) ? "borrow"
+      : ((state.collections || []).some(x => x.id === id) ? "collect"
+      : (state.deposits.some(x => x.id === id) ? "deposit" : "holding")));
     if (a === "edit") {
       if (kind === "loan") openLoanForm(id);
+      else if (kind === "borrow") openBorrowForm(id);
+      else if (kind === "collect") openCollectForm(id);
       else if (kind === "deposit") openDepositForm(id);
       else openHoldingForm(id);
     }
