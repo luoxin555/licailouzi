@@ -14,15 +14,15 @@
 })();
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="理财记账">
+<meta name="apple-mobile-web-app-title" content="財PFM">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="application-name" content="理财记账">
+<meta name="application-name" content="財PFM">
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<title>理财记账 · 持仓与定存</title>
-<meta name="description" content="单文件个人理财记账工具：基金股票买卖与盈亏计算、银行定期存款到期日与利息测算、总资产汇总，数据保存在浏览器本地，支持 JSON 备份导入导出。">
+<title>財PFM · 持仓与定存</title>
+<meta name="description" content="单文件个人財PFM工具：基金股票买卖与盈亏计算、银行定期存款到期日与利息测算、总资产汇总，数据保存在浏览器本地，支持 JSON 备份导入导出。">
 <style>
 *,*::before,*::after{box-sizing:border-box}
 :root{
@@ -159,12 +159,18 @@ html[data-theme="dark"] .btn.primary{color:#0b0e12}
 .bank-inline{display:flex;flex-wrap:wrap;gap:4px 12px;padding:0 2px 8px;margin-top:-4px;font-size:11.5px;color:var(--muted)}
 .bank-inline b{color:var(--text);font-variant-numeric:tabular-nums}
 .bank-list{display:flex;flex-direction:column}
-.bank-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
-.bank-row:last-child{border-bottom:0}
-.bank-main{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
-.bank-main b{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bank-main small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bank-row>.num{flex:0 0 auto;font-size:14px;font-variant-numeric:tabular-nums}
+.bank-list{display:flex;flex-direction:column;gap:9px}
+.bank-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"m m m" "a b c";
+  align-items:center;gap:8px 8px;padding:11px 12px;border-radius:12px;background:var(--card2);
+  border:1px solid color-mix(in srgb,var(--brand) 18%,var(--line))}
+.bank-main{grid-area:m;display:flex;flex-direction:column;min-width:0;gap:2px}
+.bank-main b{font-size:13.5px;font-weight:600;overflow-wrap:anywhere;white-space:normal;line-height:1.35}
+.bank-main small{color:var(--muted);font-size:11.5px;overflow-wrap:anywhere;white-space:normal;line-height:1.35}
+.bank-row>b.num{grid-area:a;justify-self:start;font-size:18px;font-weight:650;letter-spacing:-.4px;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.bank-row .mini{height:26px;padding:0 10px;font-size:12px;white-space:nowrap}
+.bank-row .mini:nth-child(3){grid-area:b}
+.bank-row .mini:nth-child(4){grid-area:c}
 .bank-row .mini{flex:none}
 .photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .quote-note{margin:6px 0 0;font-size:11px;line-height:1.5;color:var(--warn);
@@ -221,18 +227,6 @@ html[data-theme="dark"] .btn.primary{color:#0b0e12}
 .cash-row{padding:11px 12px;border-radius:var(--r-sm);background:var(--card2);
   border:1px solid color-mix(in srgb,var(--line) 45%,transparent)}
 .cash-row+.cash-row{margin-top:7px}
-#bankList{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.bank-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"m m" "a b";gap:6px 6px;
-  align-items:center;padding:11px 12px;border-radius:14px;background:var(--card2);
-  border:1px solid color-mix(in srgb,var(--brand) 22%,var(--line));
-  box-shadow:0 1px 0 color-mix(in srgb,var(--brand) 10%,transparent)}
-.bank-row .bank-main{grid-area:m;display:flex;flex-direction:column;gap:2px;min-width:0}
-.bank-row .bank-main b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bank-row .bank-main small{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bank-row>b.num{grid-area:a;font-size:15px;letter-spacing:-.3px}
-.bank-row .mini{grid-row:2}
-.bank-row .mini:nth-child(3){grid-area:a}
-.bank-row .mini:nth-child(4){grid-area:b;justify-self:end}
 @media (max-width:360px){#bankList{grid-template-columns:1fr}}
 .cash-row label{font-size:13px;font-weight:600;color:var(--fg)}
 .cash-in span{color:var(--muted)}
@@ -656,7 +650,7 @@ img,svg,canvas,video{max-width:100%}
   <header class="top">
     <div class="brand">
       <div class="logo">¥</div>
-      <div><b>理财记账</b><small>持仓 · 定存 · 汇总</small></div>
+      <div><b>財PFM</b><small>持仓 · 定存 · 汇总</small></div>
     </div>
     <div class="head-actions">
       <button type="button" class="btn small" id="btnIncomeCal" aria-label="打开收益日历">收益日历</button>
@@ -1192,7 +1186,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.70";
+const APP_VERSION = "2026-11-20.72";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -4346,6 +4340,19 @@ function openCashTransfer() {
     return true;
   }, "确认互转");
 }
+/* 一次性清理：早期版本「删借入又反手记一条流水」留下的重复记录。
+   只清备注以「删除借入 / 删除借出 / 删除项目款项 / 删除投资」开头的行，
+   清完打标记，不再执行第二次。 */
+function cleanupDuplicateFlows() {
+  const FLAG = "licai_cleanup_dupflow_v1";
+  try { if (localStorage.getItem(FLAG) === "1") return 0; } catch (e) { /* 隐私模式 */ }
+  const list = Array.isArray(state.cashLog) ? state.cashLog : [];
+  const keep = list.filter(function (x) { return !/^删除(借入|借出|项目款项|投资)/.test(asStr(x.note)); });
+  const n = list.length - keep.length;
+  if (n > 0) { state.cashLog = keep; commit(); }
+  try { localStorage.setItem(FLAG, "1"); } catch (e) { /* 配额满 */ }
+  return n;
+}
 function openBankCards() {
   const cards = Array.isArray(state.bankCards) ? state.bankCards : [];
   const sum = bankCardsSum();
@@ -4354,13 +4361,14 @@ function openBankCards() {
         return '<div class="bank-row" data-bank-row="' + esc(c.id) + '">' +
           '<div class="bank-main"><b>' + esc(c.name) + "</b>" +
           (c.note ? "<small>" + esc(c.note) + "</small>" : "") + "</div>" +
-          '<b class="num">' + money(c.amount) + "</b>" +
+          '<b class="num">' + moneyFull(c.amount) + "</b>" +
           '<button type="button" class="mini" data-bank="edit:' + esc(c.id) + '">改</button>' +
           '<button type="button" class="mini danger" data-bank="del:' + esc(c.id) + '">删</button></div>';
       }).join("")
     : '<div class="empty" style="padding:14px"><b>还没有银行卡</b>点下面「＋ 添加银行卡」，第一张会叫「主银行卡」</div>';
   const body =
-    '<div class="cash-total"><span>银行卡合计</span><b class="num">' + money(sum) + "</b></div>" +
+    '<div class="cash-total"><span>银行卡合计</span><b class="num">' + money(sum) +
+      ' <i class="hint" style="font-style:normal;font-weight:400">（' + moneyFull(sum) + "，等于各卡之和）</i></b></div>" +
     '<div class="bank-list">' + rows + "</div>" +
     '<button type="button" class="btn small" data-bank="add" style="width:100%;margin-top:10px">＋ 添加银行卡</button>' +
     '<p class="hint">这里改的是每张卡的余额，合计会自动等于「银行卡存款」那一格；' +
@@ -6063,7 +6071,7 @@ function downloadText(name, text) {
   }
 }
 function exportJSON() {
-  if (!downloadText("理财记账-" + todayISO() + ".json", payloadJSON())) toast("导出失败，请用「复制备份文本」");
+  if (!downloadText("財PFM-" + todayISO() + ".json", payloadJSON())) toast("导出失败，请用「复制备份文本」");
   else toast("备份文件已生成");
 }
 function copyBackup() {
@@ -6228,7 +6236,7 @@ function parseSyncSource(text) {
   const inc = normalize(data);
   return {
     ok: true, data: inc,
-    label: (obj.app === "licai-jizhang" ? "理财记账备份" : "未标记来源的 JSON") +
+    label: (obj.app === "licai-jizhang" ? "財PFM备份" : "未标记来源的 JSON") +
       (obj.exportedAt ? " · 导出于 " + fmtStampText(obj.exportedAt) : "") +
       (obj.backupAt ? " · 快照于 " + fmtStampText(obj.backupAt) : "")
   };
@@ -7273,7 +7281,7 @@ function showLock(mode) {
   document.querySelectorAll(".overlay").forEach(function (el) { el.remove(); });
   const wrap = document.querySelector(".wrap");
   if (wrap) wrap.innerHTML = "";   // 锁屏期间 DOM 里不留任何账目数据
-  document.title = "理财记账";
+  document.title = "財PFM";
   lockEl = document.createElement("div");
   lockEl.className = "lock";
   document.body.appendChild(lockEl);
@@ -7288,7 +7296,7 @@ function paintLock(mode) {
   lockEl.innerHTML =
     '<div class="lock-inner">' +
       '<div class="lock-logo" aria-hidden="true">¥</div>' +
-      "<h1>理财记账</h1>" +
+      "<h1>財PFM</h1>" +
       '<p class="lock-sub">已加锁 · 输入密码查看账目</p>' +
       '<form class="lock-form" id="lkForm" autocomplete="off">' +
         '<input id="lkPwd" type="password" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="密码" aria-label="密码"' + (left ? " disabled" : "") + ">" +
@@ -7515,7 +7523,7 @@ async function maybeAutoSave() {
   const key = "licai_autosave_" + todayISO();
   try { if (localStorage.getItem(key)) return false; } catch (e) { /* 隐私模式 */ }
   const text = payloadJSON();
-  const name = "理财记账-自动备份-" + todayISO() + ".json";
+  const name = "財PFM-自动备份-" + todayISO() + ".json";
   let ok = false, where = "";
   try {
     const handle = await idbHandle("get");
@@ -7544,7 +7552,7 @@ async function pickAutoSaveFile() {
   if (!window.showSaveFilePicker) { toast("这个浏览器不支持记住文件，会自动下载到下载目录"); return; }
   try {
     const handle = await window.showSaveFilePicker({
-      suggestedName: "理财记账-自动备份.json",
+      suggestedName: "財PFM-自动备份.json",
       types: [{ description: "JSON 备份", accept: { "application/json": [".json"] } }]
     });
     await idbHandle(handle);
@@ -7800,7 +7808,7 @@ function exportBackup(id) {
       backupAt: localISO(new Date(it.at)),
       data: d
     }, null, 2);
-    if (downloadText("理财记账-备份-" + fmtStampFile(it.at) + ".json", payload)) toast("备份已导出");
+    if (downloadText("財PFM-备份-" + fmtStampFile(it.at) + ".json", payload)) toast("备份已导出");
     else toast("导出失败，请用「复制备份文本」");
   } catch (e) {
     toast("导出失败，请用「复制备份文本」");
@@ -7859,7 +7867,7 @@ $("#btnInstallHelp").addEventListener("click", function () {
   Sheet.open("添加到主屏幕", '<ol class="steps">' +
     "<li>用 Safari 打开本站的 https 网址（本地文件 file:// 不行，文件 App 预览也不行）。</li>" +
     "<li>点底部工具栏中间的「分享」按钮（方框加向上箭头）。</li>" +
-    "<li>在弹出列表里往下找「添加到主屏幕」，名称保持「理财记账」，点右上角「添加」。</li>" +
+    "<li>在弹出列表里往下找「添加到主屏幕」，名称保持「財PFM」，点右上角「添加」。</li>" +
     "<li>回到桌面，点新出现的图标即可全屏打开，没有地址栏和工具栏。</li>" +
     "<li>首次打开后会自动缓存首屏，之后断网也能进；行情刷新需要联网。</li>" +
     "</ol>", function () { return true; }, "知道了");
@@ -7939,6 +7947,7 @@ function initViewportLock() {
 
 /* ============ 启动 ============ */
 function bootApp() {
+  try { cleanupDuplicateFlows(); } catch (e) { /* 清理失败不影响打开 */ }
   applyTheme();          /* 先把 head 里定下的主题落到 meta 和分段控件上 */
   watchSystemTheme();
   let skip = false;
