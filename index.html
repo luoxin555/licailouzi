@@ -694,7 +694,7 @@ img,svg,canvas,video{max-width:100%}
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>到期提醒</h2><span class="hint">未来 60 天</span></div>
+        <div class="card-head"><h2>到期提醒</h2><span class="hint" id="ovDueHint" data-duedays="set" role="button" tabindex="0">未来 60 天 · 改</span></div>
         <div id="ovMaturity"></div>
       </div>
     </section>
@@ -1189,7 +1189,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.85";
+const APP_VERSION = "2026-11-20.86";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -2158,8 +2158,11 @@ function renderOverview() {
 
   // 到期提醒：定存 + 未结清的借出款
   const today = todayISO();
+  const DUE = dueDays();
+  const dueHintEl = $("#ovDueHint");
+  if (dueHintEl) dueHintEl.textContent = "未来 " + DUE + " 天 · 改";
   const depItems = live(state.deposits).map(d => ({ d, c: depositCalc(d) }))
-    .filter(x => x.d.principal > 0 && x.c.remaining <= 60)
+    .filter(x => x.d.principal > 0 && x.c.remaining <= DUE)
     .map(function (x) {
       const tag = x.c.early ? "已提前支取" : (x.c.matured ? "已到期" : "还有 " + x.c.remaining + " 天");
       return {
@@ -2175,7 +2178,7 @@ function renderOverview() {
       };
     });
   const loanItems = live(state.loans).map(l => ({ l, c: loanCalc(l) }))
-    .filter(x => x.c.balance > 0.004 && (x.c.overdueDays > 0 || daysBetween(today, x.c.maturity) <= 60))
+    .filter(x => x.c.balance > 0.004 && (x.c.overdueDays > 0 || daysBetween(today, x.c.maturity) <= DUE))
     .map(function (x) {
       const left = Math.max(0, daysBetween(today, x.c.maturity));
       const tag = x.c.overdueDays > 0 ? "逾期 " + x.c.overdueDays + " 天" : "还有 " + left + " 天到期";
@@ -2192,10 +2195,50 @@ function renderOverview() {
           '<div><span>年利率</span><b class="num">' + num(x.l.rate).toFixed(2) + '%</b></div></div></div>'
       };
     });
-  const upcoming = depItems.concat(loanItems).sort((a, b) => a.days - b.days);
+  /* 借入款：我们欠别人的，同样按到期日提醒 */
+  const borrowItems = live(state.borrowings).map(b => ({ b, c: loanCalc(b) }))
+    .filter(x => (x.c.balance > 0.004 || x.c.interestDue > 0.004) &&
+      (x.c.overdueDays > 0 || daysBetween(today, x.c.maturity) <= DUE))
+    .map(function (x) {
+      const left = Math.max(0, daysBetween(today, x.c.maturity));
+      const tag = x.c.overdueDays > 0 ? "逾期 " + x.c.overdueDays + " 天" : "还有 " + left + " 天到期";
+      return {
+        days: x.c.overdueDays > 0 ? -x.c.overdueDays : left,
+        html: '<div class="item" data-goto="loans" data-goto-id="' + esc(x.b.id) + '"' +
+          ' role="button" tabindex="0" aria-label="查看这笔借入款的明细"><div class="item-top"><div class="item-title"><span class="tag inv">借入</span>' +
+          '<b>' + esc(x.b.name || "未填出借人") + '</b></div>' +
+          '<div class="item-value"><div class="num strong">' + money(x.c.balance + x.c.interestDue, 0) + '</div>' +
+          '<div class="small ' + (x.c.overdueDays > 0 ? "warn" : "up") + '">' + tag + '</div></div></div>' +
+          '<div class="kv"><div><span>应还金额</span><b class="num">' + money(x.c.balance + x.c.interestDue) + '</b></div>' +
+          '<div><span>未还本金</span><b class="num">' + money(x.c.balance) + '</b></div>' +
+          '<div><span>到期日</span><b class="num">' + x.c.maturity + '</b></div></div></div>'
+      };
+    });
+  /* 项目款项：还没入账的（应收 − 已入账）按应入账日提醒 */
+  const collectItems = live(state.collections).map(function (c) {
+    const left = Math.max(0, num(c.amount) - num(c.actual));
+    return { c: c, left: left, days: daysBetween(today, c.date || todayISO()) };
+  })
+    .filter(x => x.left > 0.004 && x.days <= DUE)
+    .map(function (x) {
+      const late = x.days < 0;
+      const tag = late ? "逾期 " + (-x.days) + " 天未入账" : (x.days === 0 ? "今天应入账" : "还有 " + x.days + " 天到账");
+      return {
+        days: x.days,
+        html: '<div class="item" data-goto="loans" data-goto-id="' + esc(x.c.id) + '"' +
+          ' role="button" tabindex="0" aria-label="查看这个项目款项的明细"><div class="item-top"><div class="item-title"><span class="tag dep">项目款项</span>' +
+          '<b>' + esc(x.c.project || "未命名项目") + '</b></div>' +
+          '<div class="item-value"><div class="num strong">' + money(x.left, 0) + '</div>' +
+          '<div class="small ' + (late ? "warn" : "up") + '">' + tag + '</div></div></div>' +
+          '<div class="kv"><div><span>应收</span><b class="num">' + money(x.c.amount) + '</b></div>' +
+          '<div><span>未入账</span><b class="num up">' + money(x.left) + '</b></div>' +
+          '<div><span>应入账日</span><b class="num">' + esc(x.c.date || "") + '</b></div></div></div>'
+      };
+    });
+  const upcoming = depItems.concat(loanItems, borrowItems, collectItems).sort((a, b) => a.days - b.days);
   $("#ovMaturity").innerHTML = upcoming.length
     ? '<div class="list">' + upcoming.map(x => x.html).join("") + "</div>"
-    : '<div class="empty"><b>没有临近到期或已到期的记录</b>60 天内的定存与未结清的借款会在这里提示</div>';
+    : '<div class="empty"><b>没有临近到期或已到期的记录</b>' + DUE + ' 天内的定存、借出、借入、未入账的项目款项会在这里提示</div>';
 }
 
 /* ============ 收益日历：把三类收益按「发生日」摊到每一天 ============ */
@@ -2642,6 +2685,33 @@ function renderHoldings() {
         '<button type="button" class="mini" data-act="price">改价</button>' +
         BTN_EDIT_DEL) + '</div></article>';
   }).join("");
+}
+
+/* ============ 到期提醒：提前天数可选（记住设置） ============ */
+const DUE_OPTS = [7, 15, 30, 60, 90];
+function dueDays() {
+  const n = Math.round(num(uiFold.dueDays));
+  return n >= 1 && n <= 365 ? n : 60;
+}
+function openDueDays() {
+  const body =
+    field("提前多少天提醒", '<div class="seg">' + DUE_OPTS.map(function (n) {
+      return '<label><input type="radio" name="dd" value="' + n + '"' + (dueDays() === n ? " checked" : "") + '><span>' + n + " 天</span></label>";
+    }).join("") + "</div>") +
+    field("或者自己填（1–365）", '<input name="custom" type="text" inputmode="numeric" placeholder="留空就用上面选的">') +
+    '<p class="hint">定存、借出、借入、还没入账的项目款项都按各自的到期日（项目款项按应入账日）算进这个提醒。</p>';
+  Sheet.open("到期提醒 · 提前天数 · v" + APP_VERSION, body, function (v) {
+    const c = numText(v.custom);
+    let n;
+    if (c.ok && !c.empty) n = Math.round(c.value);
+    else n = Math.round(num(v.dd)) || dueDays();
+    if (!(n >= 1 && n <= 365)) { toast("请填 1–365 天之间"); return false; }
+    uiFold.dueDays = n;
+    saveFold();
+    renderOverview();
+    toast("到期提醒改成提前 " + n + " 天");
+    return true;
+  }, "保存");
 }
 
 /* ============ 渲染：存款 ============ */
@@ -7163,6 +7233,7 @@ document.addEventListener("click", function (e) {
 
   /* 借出 / 借入 / 项目款项 列表里的「编辑」用的是 data-edit + data-kind，
      之前没有对应分支 → 点了完全没反应 */
+  if (e.target.closest("[data-duedays]")) { openDueDays(); return; }
   const edEl = e.target.closest("[data-edit]");
   if (edEl) {
     const eid = edEl.dataset.edit, ek = edEl.dataset.kind;
