@@ -665,7 +665,7 @@ img,svg,canvas,video{max-width:100%}
         <div class="hero-top"><span>总资产（元）</span><span class="pill" id="ovAsOf">—</span></div>
         <div class="hero-value num" id="ovTotal">¥0.00</div>
         <div class="hero-row">
-          <div><span>累计收益</span><b class="num" id="ovProfit">¥0.00</b></div>
+          <div data-ovstat="profit" role="button" tabindex="0" aria-label="查看累计收益明细"><span>累计收益 ›</span><b class="num" id="ovProfit">¥0.00</b></div>
           <div><span>收益率</span><b class="num" id="ovRate">—</b></div>
           <div><span>应计利息</span><b class="num" id="ovAccrued">¥0.00</b></div>
         </div>
@@ -710,6 +710,7 @@ img,svg,canvas,video{max-width:100%}
           </div>
         </div>
         <div class="stats" id="holdStats"></div>
+        <p class="hint" style="margin:8px 0 0">删持仓前先把流水删掉，不然现金数据不对应。</p>
         <div class="seg" id="holdSeg" style="margin:12px 0">
           <label><input type="radio" name="holdTab" value="fund"><span>基金 <i id="fundCount">0</i></span></label>
           <label><input type="radio" name="holdTab" value="stock"><span>股票 <i id="stockCount">0</i></span></label>
@@ -1186,7 +1187,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.72";
+const APP_VERSION = "2026-11-20.76";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -1451,6 +1452,11 @@ function normalize(raw) {
       compound: !!d.compound,
       earlyDate: isDateStr(d.earlyDate) ? d.earlyDate : "",
       earlyRate: d.earlyRate == null || d.earlyRate === "" ? 0.35 : Math.max(0, num(d.earlyRate)),
+      /* 扣款 / 到期入账账户与入账时间必须存下来：丢了就会「入账算到现金存款」、
+         而且重开 App 后 maturedAt 消失，同一笔定存会被再算一次本金、还能再入账一次 */
+      cashAccount: asStr(d.cashAccount),
+      matureAccount: asStr(d.matureAccount),
+      maturedAt: isDateStr(d.maturedAt) ? d.maturedAt : "",
       note: asStr(d.note),
       updatedAt: Math.max(0, num(d.updatedAt))
     };
@@ -1944,6 +1950,60 @@ function hiddenEmptyHTML(what) {
   return '<div class="empty"><b>' + what + '都被隐藏了</b>去「设置 → 隐藏的记录」勾回来，' +
     "金额会重新计入合计</div>";
 }
+/* 累计收益的八项来源：总览那一格、点开的弹窗、收益日历的合计都用这一个函数，
+   口径只有一处，不会再出现「卡片一个数、明细另一个数」 */
+function profitBreakdown() {
+  const items = [];
+  const push = function (key, label, amount, basis) {
+    items.push({ key: key, label: label, amount: cash2(amount || 0), basis: basis });
+  };
+  const byKind = function (kind) {
+    let v = 0;
+    live(state.holdings).forEach(function (h) {
+      if (h.kind !== kind) return;
+      const st = holdingStats(h);
+      /* 没价格的持仓不算：否则凭空一笔 −成本 */
+      if (st.hasPrice) v += st.pl;
+      v += st.realized;
+    });
+    return v;
+  };
+  push("fund", "基金收益", byKind("fund"), "浮动盈亏 + 已实现（卖出价差、现金分红、红利再投资）");
+  push("stock", "股票收益", byKind("stock"), "浮动盈亏 + 已实现（卖出价差、现金分红）");
+  push("gold", "黄金收益", byKind("gold"), "浮动盈亏 + 已实现（卖出价差）");
+  let dep = 0;
+  live(state.deposits).forEach(function (d) { dep += depositCalc(d).accrued; });
+  push("dep", "定期存款利息", dep, "按天应计（含未到账，权责发生制）");
+  push("div", "投资分红", (typeof investmentTotals === "function" ? investmentTotals().div : 0), "已到账记录（按人民币折算）");
+  let income = 0;
+  (Array.isArray(state.cashLog) ? state.cashLog : []).forEach(function (x) {
+    /* 只算手工记的收入；借款 / 定存 / 投资自动生成的流水已各自计入别的项，算进来就重复了 */
+    if (x.kind !== "in" || x.locked) return;
+    income += num(x.amount);
+  });
+  push("cashin", "现金记一笔收入", income, "已到账（手工记账，不含自动流水）");
+  let paid = 0;
+  live(state.loans).forEach(function (l) { paid += loanCalc(l).interestPaid; });
+  push("loan", "借出款已付利息", paid, "已收（未收利息不计）");
+  let collected = 0;
+  live(state.collections).forEach(function (c) { collected += collectGot(c); });
+  push("collect", "项目款项实际入账", collected, "已入账（按实收金额）");
+  const total = items.reduce(function (a, x) { return a + x.amount; }, 0);
+  return { items: items, total: cash2(total) };
+}
+function openProfitDetail() {
+  const b = profitBreakdown();
+  const rows = b.items.map(function (x) {
+    return '<div class="cal-row"><span class="cal-tag ' + (x.amount < 0 ? "neg" : "pos") + '">' + esc(x.label) +
+      '</span><span class="hint" style="font-size:11px">' + esc(x.basis) + "</span>" +
+      '<b class="' + plClass(x.amount) + '">' + signedMoney(x.amount) + "</b></div>";
+  }).join("");
+  Sheet.open("累计收益 · v" + APP_VERSION,
+    '<div class="cal-sum" style="margin-bottom:10px"><div class="cal-kv"><span>累计收益合计</span><b class="' +
+      plClass(b.total) + '">' + signedMoney(b.total) + "</b></div></div>" + rows +
+    '<p class="hint" style="margin-top:10px">八项相加就是总览「累计收益」那一格。基金 / 股票 / 黄金按「市值 − 成本 + 已实现」算，含还没卖出的浮动盈亏；定存按天应计，未到账也算；投资分红、现金记一笔收入、借出已付利息、项目款项入账都按已到账金额。未收利息、定存未产生利息、投资本金、借入利息不计入。</p>',
+    function () { return true; }, "关闭");
+}
 function totals() {
   let mv = 0, cost = 0, realized = 0, principal = 0, accrued = 0, matInterest = 0, plSum = 0;
   live(state.holdings).forEach(h => {
@@ -1953,7 +2013,11 @@ function totals() {
     if (s.hasPrice) plSum += s.pl;
   });
   live(state.deposits).forEach(d => {
+    /* 已「到期入账」的定存：本金和利息早在入账那天进了现金，
+       这里再算一遍就是同一笔钱算两次，所以整笔跳过 */
     const c = depositCalc(d);
+    /* 已入账的定存：本金已经进了现金（不再算本金），但那笔利息是真赚到的，仍留在累计收益里 */
+    if (d.maturedAt) { accrued += c.accrued; matInterest += c.interest; return; }
     principal += num(d.principal); accrued += c.accrued; matInterest += c.interest;
   });
   /* 借款借出 = 现金 → 借出（未还本金）：一头减一头加，总资产不变，不会凭空多出一笔钱；
@@ -1975,9 +2039,12 @@ function totals() {
   const cash = num(state.cash);
   const total = mv + principal + cash + loanBalance + loanReceived + investPrincipal;
   const floatPL = plSum;
-  /* 收益按权责发生制：已收的利息也算收益，所以这里用应计口径 */
-  const profit = floatPL + realized + accrued;
-  const invested = cost + principal;
+  /* 累计收益 = 持仓浮动盈亏（未实现）+ 已实现盈亏（卖出差价 / 现金分红 / 红利再投资）
+     + 定存已产生利息（权责发生制，含未到账）+ 借出已收利息（已进现金）
+     不计入：未收利息（只是应收）、定存未产生利息、对外投资分红与本金（只做记录）、借入利息（负债成本） */
+  const profit = profitBreakdown().total;
+  /* 收益率分母 = 持仓成本 + 定存本金 + 借出未还本金（都是「投出去的钱」） */
+  const invested = cost + principal + loanBalance;
   return { mv, cost, realized, principal, accrued, matInterest, cash, loanBalance, loanDue, loanAccrued, loanReceived, investPrincipal,
     loanRepaid, loanCash: loanRepaid + loanReceived,
     total, floatPL, profit, invested,
@@ -2221,15 +2288,38 @@ function incomeCalendar() {
     }
   });
   /* 借款：逐日差分（未还本金 × 利率 ÷ 基准，分段由 loanCalc 负责） */
+  /* 借出：只算已收到的利息（和累计收益同一口径），按收到那天记 */
   live(state.loans).forEach(function (l) {
-    if (!isDateStr(l.startDate)) return;
     const name = l.borrower || "借款";
-    let prev = 0;
-    for (let day = l.startDate; day <= today; day = addDays(day, 1)) {
-      const cur = loanCalc(l, day).interest;
-      calPut(days, day, "l", cur - prev, name);
-      prev = cur;
-    }
+    (Array.isArray(l.repayments) ? l.repayments : []).forEach(function (r) {
+      if (r.kind === "interest" && isDateStr(r.date)) calPut(days, r.date, "l", num(r.amount), name + "（已付利息）");
+    });
+  });
+  /* 投资分红：按发放日记 */
+  live(state.investments).forEach(function (it) {
+    (Array.isArray(it.dividends) ? it.dividends : []).forEach(function (dv) {
+      if (!isDateStr(dv.date)) return;
+      const v = num(dv.amount) * (num(dv.fxRate) || 1);
+      calPut(days, dv.date, "v", v, (it.project || "投资") + " 分红");
+    });
+  });
+  /* 现金记一笔收入：只算手工记的，自动流水已各自计入别的项 */
+  (Array.isArray(state.cashLog) ? state.cashLog : []).forEach(function (x) {
+    if (x.kind !== "in" || x.locked || !isDateStr(x.date)) return;
+    calPut(days, x.date, "c", num(x.amount), x.note || "现金收入");
+  });
+  /* 项目款项实际入账：按入账日记 */
+  live(state.collections).forEach(function (c) {
+    const nm = (c.project || "项目款项") + " 入账";
+    const es = (Array.isArray(c.entries) ? c.entries : []).filter(function (e) { return isDateStr(e.date); });
+    if (es.length) { es.forEach(function (e) { calPut(days, e.date, "k", num(e.amount), nm); }); return; }
+    if (num(c.actual) > 0) calPut(days, isDateStr(c.date) ? c.date : today, "k", num(c.actual), nm);
+  });
+  /* 浮动盈亏是时点值：整体挂在今天，保证「逐日合计 = 累计收益」 */
+  live(state.holdings).forEach(function (h) {
+    const st = holdingStats(h);
+    if (!st.hasPrice || Math.abs(st.pl) < 0.005) return;
+    calPut(days, today, "h", st.pl, (h.name || h.code || "持仓") + " 浮动盈亏");
   });
   const months = new Map(), years = new Map();
   let total = 0;
@@ -2304,8 +2394,8 @@ function calBodyHTML() {
     (calData.months.has(calCursor) ? "" : '<p class="cal-empty">这个月没有收益记录，点上面的 ‹ › 换个月看看</p>') + detail +
     (mRows.length ? '<div class="cal-table"><div class="cal-table-head">按月汇总 · ' + y + " 年</div>" + mRows.join("") + "</div>" : "") +
     (yRows.length ? '<div class="cal-table"><div class="cal-table-head">按年汇总</div>' + yRows.join("") + "</div>" : "") +
-    '<p class="hint" style="margin-top:10px">持仓 = 已实现的卖出价差 + 分红（按发生日）；定存与借款 = 每日应计利息。' +
-    "浮动盈亏是时点值，没有历史净值无法逐日还原，所以这里的「累计收益」不含浮动盈亏，和总览顶部那行的口径不同。</p>";
+    '<p class="hint" style="margin-top:10px">八项口径与总览「累计收益」一致：持仓的已实现与分红、定存应计利息按发生日逐日归类；' +
+    "投资分红、现金收入、借出已付利息、项目款项入账按到账日；浮动盈亏是时点值，整体记在今天，所以逐日合计等于累计收益。</p>";
 }
 function paintCal() {
   const box = $("#calBody");
@@ -3263,6 +3353,7 @@ function openOvStat(key) {
   });
   else if (key === "realized") H.forEach(function (h) { const st = holdingStats(h); if (Math.abs(st.realized) > 0.004) push(h.name || h.code, "已实现", st.realized, h.id); });
   else if (key === "principal") live(state.deposits).forEach(function (d) { push(d.bank || "定存", d.startDate + " · " + d.rate + "%", num(d.principal), d.id); });
+  else if (key === "profit") { openProfitDetail(); return; }
   else if (key === "accrued") live(state.deposits).forEach(function (d) {
     const c = depositCalc(d);
     /* 一次性把三个数都给出来：今天已产生 / 还没产生 / 到期合计——总览那格取「已产生」 */
@@ -3452,7 +3543,18 @@ const Sheet = {
       const data = {};
       const fd = new FormData(e.target);
       fd.forEach(function (v, k) { data[k] = v; });
-      const r = onSubmit(data);
+      /* 任何写入前先留一份快照：现金不够时整笔回滚，绝不留半截数据 */
+      const snap = JSON.stringify(state);
+      let r;
+      try { r = onSubmit(data); } catch (err) { console.error(err); r = false; }
+      if (CASH_SHORT.v != null) {
+        const short = CASH_SHORT.v;
+        CASH_SHORT.v = null;
+        try { state = JSON.parse(snap); } catch (e) { /* 快照坏了就保持原样 */ }
+        render();
+        toast("余额不足，还差 " + moneyFull(short) + "，没有保存");
+        return;
+      }
       if (r === false) return;
       Sheet.close();
     });
@@ -4228,6 +4330,10 @@ function cashAccountOptions(sel, withAuto) {
     return '<option value="' + esc(x[0]) + '"' + (x[0] === cur ? " selected" : "") + ">" + esc(x[1]) + "</option>";
   }).join("");
 }
+/* 四个账户任何操作都不允许出现负数：余额不够就整笔拒绝（不写半截），
+   由 Sheet 的提交口统一回滚并提示还差多少 */
+const CASH_SHORT = { v: null };
+function cashShort(short) { CASH_SHORT.v = Math.abs(cash2(short)); return 0; }
 function cashDelta(delta, acct) {
   const d = cash2(delta);
   if (!d) return 0;
@@ -4241,11 +4347,13 @@ function cashDelta(delta, acct) {
   if (cardId) {
     /* 走具体某张卡：只动这张卡，银行卡合计跟着重算 */
     const card = bankCardById(cardId) || ensureBankCard();
+    if (d < 0 && cash2(num(card.amount) + d) < -0.004) return cashShort(num(card.amount) + d);
     card.amount = cash2(num(card.amount) + d);
     p.bank = bankCardsSum();
   } else if (key === "bank") {
     /* 只说了「银行卡」：按卡片顺序分摊，先第一张、不够再下一张，都不够就让第一张变负 */
     const cards = (Array.isArray(state.bankCards) && state.bankCards.length) ? state.bankCards : [ensureBankCard()];
+    if (d < 0 && cash2(bankCardsSum() + d) < -0.004) return cashShort(bankCardsSum() + d);
     let left = d;
     cards.forEach(function (c) {
       if (Math.abs(left) < 0.005) return;
@@ -4256,7 +4364,10 @@ function cashDelta(delta, acct) {
     if (left < -0.005) cards[0].amount = cash2(num(cards[0].amount) + left);
     p.bank = bankCardsSum();
   } else if (key) {
+    if (d < 0 && cash2(num(p[key]) + d) < -0.004) return cashShort(num(p[key]) + d);
     p[key] = cash2(num(p[key]) + d);
+  } else if (d < 0 && cash2(cashSum(p) + d) < -0.004) {
+    return cashShort(cashSum(p) + d);
   } else if (d > 0) {
     p.cash = cash2(num(p.cash) + d);             /* 收回来的钱先进「现金存款」 */
   } else {
