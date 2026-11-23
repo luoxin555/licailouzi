@@ -234,6 +234,11 @@ html[data-theme="dark"] .btn.primary{color:#0b0e12}
 .cash-in span{color:var(--muted)}
 .tag.inv{background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--brand)}
 .tag.gold{background:color-mix(in srgb,#c08a00 16%,transparent);color:#a97400}
+.risk-hold{color:#1a7f37}.risk-mid{color:#b26a00}.risk-high{color:#c62828}
+html[data-theme="dark"] .risk-hold{color:#5fce7e}html[data-theme="dark"] .risk-mid{color:#f0c040}html[data-theme="dark"] .risk-high{color:#ff7b72}
+.tag.risk-hold{background:color-mix(in srgb,#1a7f37 14%,transparent)}
+.tag.risk-mid{background:color-mix(in srgb,#b26a00 16%,transparent)}
+.tag.risk-high{background:color-mix(in srgb,#c62828 14%,transparent)}
 html[data-theme="dark"] .tag.gold{background:color-mix(in srgb,#f0c040 20%,transparent);color:#f0c040}
 .hide-row{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:var(--r-sm);background:var(--card2);font-size:13px}
 .hide-row input{width:18px;height:18px;margin:0;flex:none;accent-color:var(--brand)}
@@ -755,7 +760,8 @@ img,svg,canvas,video{max-width:100%}
         <div id="investPane" hidden>
           <div class="stats" id="invStats"></div>
           <div class="inv-head"><span class="hint">投出去的钱单独记，本金和分红都不计入总资产</span>
-            <button type="button" class="btn small" data-invest="add">＋ 新增投资</button></div>
+            <button type="button" class="btn small" data-invest="add">＋ 新增投资</button>
+            </div>
           <div id="investList" class="list"></div>
         </div>
         <p class="hint col-tip tip-dep">已收起 · 点卡片右上角的箭头展开</p>
@@ -1189,7 +1195,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.87";
+const APP_VERSION = "2026-11-20.95";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -1583,6 +1589,12 @@ function normalize(raw) {
       phone: asStr(it.phone),
       dividends: divs,
       addons: addons,
+      /* 回款本金：每笔都是「拿回来的本金」，不参与分红口径 */
+      repays: (Array.isArray(it.repays) ? it.repays : []).map(function (x) {
+        return { id: asStr(x && x.id) || uid(), amount: Math.max(0, num(x && x.amount)),
+          date: isDateStr(x && x.date) ? x.date : todayISO(), note: asStr(x && x.note),
+          cashAccount: asStr(x && x.cashAccount) };
+      }),
       photos: photos,
       note: asStr(it.note),
       updatedAt: Math.max(0, num(it.updatedAt))
@@ -2042,12 +2054,13 @@ function totals() {
     loanReceived += c.interestPaid;
     loanRepaid += c.repaidPrincipal;
   });
-  /* 投资本金：投出去的钱还是自己的资产（和「借出」同理），只是换了个形态；
-     分红只做记录、不进总资产，口径不动 */
+  /* 对外投资：本金和分红都只做记录，不再进总资产（投出去的钱单独记） */
   let investPrincipal = 0;
   live(state.investments).forEach(function (it) { investPrincipal += investPrincipalCNY(it); });
   const cash = num(state.cash);
-  const total = mv + principal + cash + loanBalance + loanReceived + investPrincipal;
+  /* 已收利息不再单列进总资产：它在收款那一刻已经 cashDelta 进了现金账户，
+     再加一次就是双算（2026-11-23 核对）。未收（应收）利息本来就不进。 */
+  const total = mv + principal + cash + loanBalance;
   const floatPL = plSum;
   /* 累计收益 = 持仓浮动盈亏（未实现）+ 已实现盈亏（卖出差价 / 现金分红 / 红利再投资）
      + 定存已产生利息（权责发生制，含未到账）+ 借出已收利息（已进现金）
@@ -2100,8 +2113,7 @@ function renderOverview() {
     { k: "黄金", v: live(state.holdings).filter(h => h.kind === "gold").reduce((a, h) => a + holdingStats(h).mv, 0), c: "#c08a00", go: "holdings", sub: "gold" },
     { k: "定存", v: t.principal, c: "var(--down)", go: "deposits", sub: "dep" },
     { k: "借出", v: t.loanBalance, c: "#7c4dff", go: "loans", sub: "" },
-    { k: "利息", v: t.loanReceived, c: "#00b8a9", go: "loans", sub: "" },
-    { k: "投资", v: t.investPrincipal, c: "#ff8a3d", go: routeOf("投资").page, sub: routeOf("投资").sub },
+    { k: "对外投资", v: live(state.investments).reduce((a, it) => a + Math.max(0, investPrincipalCNY(it) - investBackCNY(it)), 0), c: "#ff8a3d", go: routeOf("投资").page, sub: routeOf("投资").sub },
     { k: "现金", v: t.cash, c: "var(--warn)", go: "deposits", sub: "cash" }
   ].filter(p => p.v > 0.004);
   const sum = parts.reduce((a, p) => a + p.v, 0);
@@ -2119,7 +2131,7 @@ function renderOverview() {
   }
   /* 现金为负时不能参与占比（没有负宽度的柱子），但合计必须等于总资产，否则两个数字对不上 */
   $("#ovAllocNote").textContent = parts.length
-    ? "合计 " + money(t.total, 0) + (t.cash < 0 ? "（现金 " + money(t.cash, 0) + " 为负，未计入占比）" : "")
+    ? "合计 " + money(sum + (t.cash < 0 ? t.cash : 0), 0) + "（对外投资只算未收回本金）" + (t.cash < 0 ? "（现金 " + money(t.cash, 0) + " 为负，未计入占比）" : "")
     : "";
 
   /* 第 5 项 = 点这个格子去哪个页签；没写就不给点（将来加了不对应任何页签的指标，不会被误点） */
@@ -2769,6 +2781,7 @@ function investCard(it) {
     '<div class="item-head" data-fold="investment" role="button" tabindex="0" aria-expanded="' + (open ? "true" : "false") + '">' +
       '<div class="item-top">' +
         '<div class="item-title"><span class="tag inv">投资</span><b>' + esc(it.project || "未命名项目") + '</b>' +
+          '<span class="tag ' + investRisk(it).cls + '">' + investRisk(it).text + '</span>' +
           (cur ? '<span class="code">' + esc(cur) + '</span>' : '') +
           (photos ? '<span class="code">📷' + photos + '</span>' : '') + '</div>' +
         '<div class="item-value"><div class="num strong">' + money(investPrincipalCNY(it), 0) + '</div>' +
@@ -2790,6 +2803,9 @@ function investCard(it) {
         '<div><span>投资日期</span><b class="num">' + esc(it.date) + '</b></div>' +
         '<div><span>联系人</span><b class="num">' + (it.contact ? esc(it.contact) : "—") + '</b></div>' +
         '<div><span>联系电话</span><b class="num">' + (it.phone ? esc(it.phone) : "—") + '</b></div>' +
+        '<div><span>回款本金</span><b class="num' + (investBackSum(it) > 0 ? " up" : "") + '">' + money(Math.max(0, investPrincipal(it) - investBackSum(it))) + '</b></div>' +
+        '<div><span>已回款</span><b class="num">' + money(investBackSum(it)) + ' · ' + (it.repays || []).length + ' 笔</b></div>' +
+        '<div><span>项目状态</span><b class="num ' + investRisk(it).cls + '">' + investRisk(it).text + '</b></div>' +
         '<div><span>累计分红</span><b class="num up">' + money(div) + ' · ' + n + ' 笔</b></div>' +
         '<div><span>投资回报率</span><b class="num' + (roi > 0 ? " up" : "") + '">' + roi.toFixed(2) + '%</b></div>' +
         (it.note ? '<div><span>备注</span><b class="num">' + esc(it.note) + '</b></div>' : '') +
@@ -2797,6 +2813,7 @@ function investCard(it) {
       itemFoot('<span class="src">仅记录 · 不计入总资产</span>', "",
         '<button type="button" class="mini" data-invest="addon" data-id="' + esc(it.id) + '">追投</button>' +
         '<button type="button" class="mini" data-invest="divs" data-id="' + esc(it.id) + '">分红</button>' +
+        '<button type="button" class="mini" data-invest="repay" data-id="' + esc(it.id) + '">回款</button>' +
         '<button type="button" class="mini" data-invest="photos" data-id="' + esc(it.id) + '">照片' + (photos ? " " + photos : "") + '</button>' +
         '<button type="button" class="mini" data-invest="edit" data-id="' + esc(it.id) + '">改</button>' +
         '<button type="button" class="mini danger" data-invest="del" data-id="' + esc(it.id) + '">删</button>') +
@@ -2812,7 +2829,11 @@ function renderInvestments() {
     ["项目数", t.count + " 个", "", "", "", 'data-invsum="projects"'],
     ["投资本金", money(t.amount), "", "", "", 'data-invsum="amount"'],
     ["累计分红", money(t.div), t.div > 0 ? "up" : "", "", "", 'data-invsum="div"'],
-    ["投资回报率", t.roi.toFixed(2) + "%", t.div > 0 ? "up" : "", "", "", 'data-invsum="roi"']
+    ["投资回报率", t.roi.toFixed(2) + "%", t.div > 0 ? "up" : "", "", "", 'data-invsum="roi"'],
+    ["已回本金", live(state.investments).filter(function (it) { return investBackSum(it) > 0.004; }).length + " 个",
+      "up", "点开看每个项目的回款", null, 'data-investlist="backed"'],
+    ["未回本金", live(state.investments).filter(function (it) { return investBackSum(it) <= 0.004; }).length + " 个",
+      "", "只列一笔本金都没回过的项目", null, 'data-investlist="unbacked"']
   ]);
   if (!t.count) {
     box.innerHTML = state.investments.length
@@ -4750,7 +4771,8 @@ function openCashLogDetail(id) {
   const x = (state.cashLog || []).filter(function (r) { return r.id === id; })[0];
   if (!x) { toast("这笔收支已经不在了"); return; }
   const refTxt = x.locked && x.ref ? ({
-    loan: "借出款项", borrow: "借入款项", collect: "项目款项", trade: "买卖流水"
+    loan: "借出款项", borrow: "借入款项", collect: "项目款项", trade: "买卖流水",
+    invest: "投资分红", investRepay: "投资回款"
   }[x.ref.kind] || "自动生成") : "";
   const body =
     '<div class="kv">' +
@@ -5107,7 +5129,14 @@ function renderRefreshStatus() {
   if (!state.settings.autoRefresh) { tone = "off"; text = "自动刷新已关闭"; }
   else if (lockEl) { tone = "off"; text = "已锁定，暂停刷新"; }
   else if (document.hidden) { tone = "off"; text = "切到后台，已暂停"; }
-  else if (!needsQuoteRefresh()) { tone = "ok"; text = "已是最新净值 · 有新数据时自动拉取"; }
+  else if (!needsQuoteRefresh()) {
+    const ds = live(state.holdings).map(function (h) { return h.priceDate; }).filter(Boolean).sort();
+    const latest = ds.length ? ds[ds.length - 1] : "";
+    tone = "ok";
+    text = latest
+      ? "净值日 " + latest.slice(5).replace("-", "/") + " 已是最近一期 · 今日净值 19:00 后公布"
+      : "已是最新净值 · 有新数据时自动拉取";
+  }
   else if (s.phase === "closed") { tone = "ok"; text = s.label + " · 正在补最新净值"; }
   else { tone = "ok"; text = s.label + " · 每 " + Math.max(1, Math.round(autoGapMs() / 60000)) + " 分钟"; }
   if (el) el.textContent = text + (lastRefreshAt ? " · 上次刷新 " + relTime(lastRefreshAt) : "");
@@ -5124,8 +5153,13 @@ function renderRefreshStatus() {
    以前这里用「交易时段」一刀切，导致晚上 19:00 净值公布后（此时早就收盘）永远不刷新，
    第二天开盘前打开看到的还是前一天的净值——这才是「日涨跌 / 盈亏 不更新」的根因 */
 function needsQuoteRefresh() {
+  const t = todayISO();
   return state.holdings.some(function (h) {
-    return String(h.priceDate || "") < expectedDataDate(h);
+    const d = String(h.priceDate || "");
+    /* 没有净值日、或者被写成了未来日期（手工填错 / 时区错乱）都要重新拉一次，
+       否则「净值日 >= 应到日期」永远成立，自动刷新会一直空转、日期再也不动 */
+    if (!isDateStr(d) || d > t) return true;
+    return d < expectedDataDate(h);
   });
 }
 async function autoRefreshTick() {
@@ -5506,6 +5540,25 @@ async function refreshAll(silent) {
 }
 
 /* ============ 投资：项目 + 逐笔分红 ============ */
+/* 已回款本金合计：没有回款记录就是 0，卡片上显示「回款本金 = 本金 − 已回款」 */
+function investBackSum(it) {
+  return (it.repays || []).reduce(function (a, x) { return a + num(x.amount); }, 0);
+}
+/* 项目状态：最近一次分红（一次没分过按投放日）距今 —— 1 年内「持有中」，超 1 年未满 3 年「中风险」，超 3 年「高风险」 */
+function investRisk(it) {
+  const last = investLastDiv(it) || it.date || "";
+  if (!isDateStr(last)) return { text: "持有中", cls: "risk-hold", days: 0 };
+  const days = Math.max(0, Math.round((parseDate(todayISO()) - parseDate(last)) / 86400000));
+  if (days <= 365) return { text: "持有中", cls: "risk-hold", days: days };
+  if (days <= 365 * 3) return { text: "中风险", cls: "risk-mid", days: days };
+  return { text: "高风险", cls: "risk-high", days: days };
+}
+function investBackCNY(it) {
+  const base = (it && it.currency) || "CNY";
+  return cash2(((it && it.repays) || []).reduce(function (a, x) {
+    return a + num(x.amount) * fxRateFor(base, it && it.fxRate);
+  }, 0));
+}
 function investDivSum(it) {
   return (it.dividends || []).reduce(function (a, x) { return a + num(x.amount); }, 0);
 }
@@ -6147,6 +6200,96 @@ function openInvestSummary(kind) {
     if (K === "stale") renderOverview();
     return true;
   }, "关闭");
+}
+/* 账户代码 → 中文名（弹窗里显示用） */
+function acctName(a) {
+  const k = String(a || "");
+  if (!k) return "自动（现金→银行卡→微信→支付宝）";
+  if (k.indexOf("bank:") === 0) {
+    const c = (state.bankCards || []).filter(function (x) { return x.id === k.slice(5); })[0];
+    return c ? c.name : "银行卡";
+  }
+  return ({ cash: "现金", wechat: "微信", alipay: "支付宝", bank: "银行卡" })[k] || k;
+}
+function openInvestRepayForm(invId, rid) {
+  const it = findInvest(invId);
+  if (!it) { toast("这条投资已经不在了"); return; }
+  const rec = (it.repays || []).filter(function (x) { return x.id === rid; })[0] || null;
+  const back = investBackSum(it), left = Math.max(0, investPrincipal(it) - back);
+  const body =
+    field("回款本金（元）", '<input type="text" inputmode="decimal" name="amount" placeholder="' + (rec ? "" : "还剩 " + numText(left)) + '" value="' + (rec ? numText(rec.amount) : "") + '">') +
+    field("回款日期", '<input type="date" name="date" value="' + (rec ? esc(rec.date) : todayISO()) + '">') +
+    field("入账账户", '<select name="account">' + cashAccountOptions(rec ? rec.cashAccount : (it.cashAccount || ""), false) + "</select>") +
+    field("备注", '<input type="text" name="note" placeholder="可留空" value="' + (rec ? esc(rec.note || "") : "") + '">') +
+    '<p class="hint">回款会记进所选账户，并在「现金 → 收支记录」里生成一条自动流水（不能在那里删，要回这里改或删）。</p>';
+  Sheet.open("回款本金 · v" + APP_VERSION, body, function (v) {
+    const a = numText(v.amount);
+    if (!a.ok || !(a.value > 0)) { toast("请填回款金额"); return false; }
+    if (!isDateStr(v.date)) { toast("请选回款日期"); return false; }
+    const acct = String(v.account || "");
+    const id = rec ? rec.id : uid();
+    /* 先冲回上一次的流水，再按新金额重新入账，避免改完重复计 */
+    removeCashFlows("investRepay", id, "");
+    const item = { id: id, amount: Math.round(a.value * 100) / 100, date: v.date, note: String(v.note || ""), cashAccount: acct };
+    if (rec) it.repays = (it.repays || []).map(function (x) { return x.id === id ? item : x; });
+    else it.repays = (it.repays || []).concat([item]);
+    it.updatedAt = Date.now();
+    cashDelta(item.amount, acct);
+    logCashFlow("investRepay", item.amount, acct, item.date, "投资回款 · " + (it.project || "未命名项目"), id);
+    commit(); render();
+    toast((rec ? "已改回款 " : "已记回款 ") + money(item.amount));
+    return true;
+  }, "保存");
+}
+function openInvestRepayList(invId) {
+  const it = findInvest(invId);
+  if (!it) { toast("这条投资已经不在了"); return; }
+  const rows = (it.repays || []).slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+  const body = rows.length
+    ? '<div class="dl-list">' + rows.map(function (r) {
+      return '<div class="dl-row"><div class="dl-main"><b>' + moneyFull(r.amount) + '</b><small>' + esc(r.date) +
+        " · " + esc(acctName(r.cashAccount)) + (r.note ? " · " + esc(r.note) : "") + "</small></div>" +
+        '<button type="button" class="mini" data-repay="' + esc(it.id) + '" data-rid="' + esc(r.id) + '">改</button>' +
+        '<button type="button" class="mini danger" data-repaydel="' + esc(it.id) + '" data-rid="' + esc(r.id) + '">删</button></div>';
+    }).join("") + "</div>"
+    : '<div class="empty"><b>还没有回款记录</b>点下面按钮记第一笔</div>';
+  Sheet.open("回款记录 · v" + APP_VERSION, body +
+    '<div style="margin-top:12px"><button type="button" class="btn small" data-repay="' + esc(it.id) + '">＋ 记一笔回款</button></div>',
+    function () { return true; }, "关闭");
+}
+function openInvestBacked() {
+  const rows = live(state.investments).map(function (it) {
+    return { it: it, p: investPrincipal(it), b: investBackSum(it), left: Math.max(0, investPrincipal(it) - investBackSum(it)) };
+  }).filter(function (x) { return x.b > 0.004; });
+  const sum = rows.reduce(function (a, x) { return a + x.b; }, 0);
+  const head = '<div class="stats">' +
+    statRow("已回本金", moneyFull(sum), "up") +
+    statRow("投资本金", moneyFull(rows.reduce(function (a, x) { return a + x.p; }, 0))) +
+    "</div>";
+  const body = head + (rows.length
+    ? '<div class="dl-list">' + rows.map(function (x) {
+      return '<div class="dl-row"><div class="dl-main"><b>' + esc(x.it.project || "未命名项目") + '</b>' +
+        "<small>投资本金 " + moneyFull(x.p) + " · 已回本金 " + moneyFull(x.b) + " · 未回本金 " + moneyFull(x.left) + "</small></div></div>";
+    }).join("") + "</div>"
+    : '<div class="empty"><b>还没有回款</b>投资里记一笔回款后会出现在这里</div>');
+  Sheet.open("已回本金 · v" + APP_VERSION, body, function () { return true; }, "关闭");
+}
+function openInvestUnbacked() {
+  /* 只有「一笔本金都没回过」的项目才算未回款；回过一笔就整条不再出现 */
+  const rows = live(state.investments).map(function (it) {
+    return { it: it, p: investPrincipal(it), b: investBackSum(it), left: Math.max(0, investPrincipal(it) - investBackSum(it)) };
+  }).filter(function (x) { return x.b <= 0.004; });
+  const sum = rows.reduce(function (a, x) { return a + x.left; }, 0);
+  const head = '<div class="stats">' +
+    statRow("未回款本金", moneyFull(sum)) +
+    "</div>";
+  const body = head + (rows.length
+    ? '<div class="dl-list">' + rows.map(function (x) {
+      return '<div class="dl-row"><div class="dl-main"><b>' + esc(x.it.project || "未命名项目") + '</b>' +
+        "<small>投资日 " + esc(x.it.date) + "</small></div><b class=\"num\">" + moneyFull(x.left) + "</b></div>";
+    }).join("") + "</div>"
+    : '<div class="empty"><b>都回过了</b>每个项目都至少回了一笔本金</div>');
+  Sheet.open("未回本金 · v" + APP_VERSION, body, function () { return true; }, "关闭");
 }
 function openInvestDivList(invId) {
   const it = findInvest(invId);
@@ -7025,6 +7168,23 @@ document.addEventListener("click", function (e) {
   if (invSum) { openInvestSummary(invSum.dataset.invsum); return; }
 
   /* 投资 */
+  const il = e.target.closest("[data-investlist]");
+  if (il) { if (il.dataset.investlist === "backed") openInvestBacked(); else openInvestUnbacked(); return; }
+  const rp = e.target.closest("[data-repay]");
+  if (rp) { openInvestRepayForm(rp.dataset.repay, rp.dataset.rid || null); return; }
+  const rd = e.target.closest("[data-repaydel]");
+  if (rd) {
+    const it0 = findInvest(rd.dataset.repaydel), rid0 = rd.dataset.rid;
+    const rec0 = it0 && (it0.repays || []).filter(function (x) { return x.id === rid0; })[0];
+    if (!it0 || !rec0) { toast("这笔回款已经不在了"); return; }
+    if (!confirm("删掉这笔回款？会从账户里扣回 " + moneyFull(rec0.amount))) return;
+    it0.repays = (it0.repays || []).filter(function (x) { return x.id !== rid0; });
+    it0.updatedAt = Date.now();
+    if (!removeCashFlows("investRepay", rid0, "")) cashDelta(-num(rec0.amount), rec0.cashAccount);
+    commit(); render();
+    toast("已删回款 " + money(rec0.amount));
+    return;
+  }
   const inv = e.target.closest("[data-invest]");
   if (inv) {
     const k = inv.dataset.invest, iid = inv.dataset.id, did = inv.dataset.did;
@@ -7034,6 +7194,7 @@ document.addEventListener("click", function (e) {
     else if (k === "divs") openInvestDivList(iid);
     else if (k === "addon") openAddonForm(iid, null);
     else if (k === "photos") openPhotoSheet(iid);
+    else if (k === "repay") openInvestRepayList(iid);
     else if (k === "divadd") openInvestDivForm(iid, null);
     else if (k === "divedit") openInvestDivForm(iid, did);
     else if (k === "divdel") {

@@ -2,7 +2,7 @@
  * 策略：首屏 network-first（保证更新能落地，离线回退缓存），静态资源 cache-first。
  * 行情接口（跨域 JSONP）一律直连网络，不缓存；离线时由页面降级为手动录入。
  */
-const VERSION = "2026-11-20.87";
+const VERSION = "2026-11-20.95";
 const CACHE = "licai-jizhang-" + VERSION;
 const ASSETS = [
   "./",
