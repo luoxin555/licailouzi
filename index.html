@@ -15,12 +15,6 @@
 </script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="財PFM">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="application-name" content="財PFM">
-<meta name="format-detection" content="telephone=no">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <title>財PFM · 持仓与定存</title>
 <meta name="description" content="单文件个人財PFM工具：基金股票买卖与盈亏计算、银行定期存款到期日与利息测算、总资产汇总，数据保存在浏览器本地，支持 JSON 备份导入导出。">
 <style>
@@ -582,11 +576,6 @@ img,svg,canvas,video{max-width:100%}
   .kv{grid-template-columns:repeat(2,minmax(0,1fr))}
   .card{padding:13px}
 }
-.netbar{background:#b5730a;color:#fff;font-size:12.5px;text-align:center;letter-spacing:.2px;
-  padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
-.netbar[hidden]{display:none}
-.steps{padding-left:18px;color:var(--muted);font-size:13px;line-height:1.9}
-.steps li{margin-bottom:4px}
 [hidden]{display:none!important}
 /* 收益日历 */
 .cal-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
@@ -652,7 +641,6 @@ img,svg,canvas,video{max-width:100%}
 </style>
 </head>
 <body>
-<div class="netbar" id="netbar" hidden>当前离线：行情无法刷新，记账、查看与导出照常可用</div>
 <div class="wrap">
   <header class="top">
     <div class="brand">
@@ -917,6 +905,11 @@ img,svg,canvas,video{max-width:100%}
           <input type="checkbox" id="autoEnabled">
           <label for="autoEnabled">打开应用与前台运行时自动刷新净值 / 行情</label>
         </div>
+        <div class="chk" style="margin-top:10px">
+          <input type="checkbox" id="usAuto5s" checked>
+          <label for="usAuto5s">美股 / 港股每 5 秒自动刷新报价</label>
+        </div>
+        <p class="hint" id="usQuoteAt">最后更新：—</p>
         <div class="field" style="margin-top:10px">
           <label>交易时段刷新间隔</label>
           <select id="autoMinutes">
@@ -937,16 +930,6 @@ img,svg,canvas,video{max-width:100%}
           <label><input type="radio" name="basis" value="360"><span>按 360 天</span></label>
         </div>
         <p class="hint" style="margin-top:9px">单利：利息 = 本金 × 年利率 × 天数 ÷ 计息基准。复利：整年部分按年复利滚存，不足一年按单利累加。已计利息按起存日算到今天，到期利息按完整期限计算。</p>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h2>安装与离线</h2><span class="pill" id="pwaBadge" style="background:var(--card2);color:var(--muted)">检测中</span></div>
-        <div class="hint" id="pwaState">正在检测 Service Worker 状态…</div>
-        <div class="btn-grid" style="margin-top:10px">
-          <button type="button" class="btn" id="btnInstallHelp">添加到主屏幕</button>
-          <button type="button" class="btn" id="btnUpdate">检查更新</button>
-        </div>
-        <p class="hint" style="margin-top:9px">主屏幕图标需要网址（https 或 localhost）。从「文件」App 直接打开本地 HTML 时没有 Service Worker，也不能添加到主屏幕。</p>
       </div>
 
       <div class="card">
@@ -1114,7 +1097,7 @@ function normDebts(list) {
       name: asStr(l.name || l.lender || l.borrower),
       amount: Math.max(0, num(l.amount)),
       rate: Math.max(0, num(l.rate)),
-      rateUnit: l.rateUnit === "month" ? "month" : (l.rateUnit === "day" ? "day" : "year"),
+      rateUnit: l.rateUnit === "month" ? "month" : "year",
       startDate: isDateStr(l.startDate) ? l.startDate : todayISO(),
       termValue: Math.max(1, num(l.termValue) || 12),
       termUnit: ["day", "month", "year"].indexOf(l.termUnit) >= 0 ? l.termUnit : "month",
@@ -1195,7 +1178,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.97";
+const APP_VERSION = "2026-11-20.99";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -1799,16 +1782,16 @@ function loanCalc(l, todayStr) {
     if (isP(x)) bal = Math.max(0, bal - x.amount);
     from = to;
   });
-  /* 逾期利息（罚息）：只对「已过到期日且本金未还清」的这段天数计，利率单独填 */
+  /* 到期不还继续计息：上面那段按原利率一直算到今天，所以「本金没还清」利息就不断涨；
+     填了逾期利率时，把逾期这段的差额补成逾期利率（不是另加一笔，避免同一段重复计息） */
   const odRate = Math.max(0, num(l.overdueRate)) / 100;
   const odDays = (today > maturity && balance > 0.004) ? Math.max(0, daysBetween(maturity, today)) : 0;
   const effOdRate = odRate > 0 ? odRate : r;      /* 没填逾期利率就沿用原利率，继续计息 */
   const penalty = odDays > 0 ? balance * effOdRate * odDays / basis : 0;   /* 到期后按逾期利率继续计息 */
-  /* 应收利息 = 本金 × 年利率 × 年限（年限至少到到期日，到期不还就继续算到今天），再减掉已经付掉的利息 */
   /* 应收利息 = 按未还本金分段计息后相加（还一次本金就重新分段），再减掉已经付掉的利息。
      例：10000 元 12 个月 1.75%，2 个月后还 2000 → 10000×1.75%×2/12 + 8000×1.75%×10/12 */
   const wholeInterest = interest;
-  const interestDue = Math.max(0, interest + penalty - interestPaid);   // 应计但还没收到的利息（含罚息）
+  const interestDue = Math.max(0, interest + penalty - interestPaid);
   const overdueDays = (today > maturity && balance > 0.004) ? Math.max(0, daysBetween(maturity, today)) : 0;
   return {
     maturity, totalDays, repaid, repaidPrincipal, interestPaid, receivedCash, balance, interest, interestDue, wholeInterest, basis,
@@ -1825,7 +1808,10 @@ function loanCalc(l, todayStr) {
 function holdingStats(h) {
   const shares = num(h.shares), cost = num(h.cost);
   const price = num(h.price);
-  const mv = shares * price;
+  const cur = h.cur || curOfCode(h.code);
+  /* 美股 / 港股：现价是美元 / 港币，市值要按汇率折成人民币；人民币资产 rate = 1 */
+  const rate = curRate(cur);
+  const mv = shares * price * rate;
   /* 货币基金净值恒为 1：每天赚到的钱在 applyQuote 里就折成份额了（份额 × 1 就是它的钱），
      这里不能再额外加一笔，否则同一份收益算两次 */
   const mmfAccrued = Math.max(0, num(h.mmfAccrued));
@@ -1841,7 +1827,8 @@ function holdingStats(h) {
     if (prev > 0 && isFinite(price) && price > 0) dayPct = (price - prev) / prev * 100;
     else if (h.pct != null && isFinite(Number(h.pct))) dayPct = Number(h.pct);
   }
-  return { shares, cost, price, mv, pl, cps, plPct, mmfAccrued: mmfAccrued, realized: num(h.realized),
+  const dayChg = (prev > 0 && isFinite(price) && price > 0) ? (price - prev) : null;
+  return { shares, cost, price, mv, pl, cps, plPct, mmfAccrued: mmfAccrued, realized: num(h.realized), cur: cur, rate: rate, dayChg: dayChg,
     /* 没有价格（刚建仓 / 一直没取到行情）不能按 0 算：否则市值 0、盈亏 −成本，等于凭空报一个 −100% */
     hasPrice: isFinite(price) && price > 0,
     prevPrice: prev > 0 ? prev : null, dayPct: dayPct };
@@ -2113,6 +2100,7 @@ function renderOverview() {
     { k: "黄金", v: live(state.holdings).filter(h => h.kind === "gold").reduce((a, h) => a + holdingStats(h).mv, 0), c: "#c08a00", go: "holdings", sub: "gold" },
     { k: "定存", v: t.principal, c: "var(--down)", go: "deposits", sub: "dep" },
     { k: "借出", v: t.loanBalance, c: "#7c4dff", go: "loans", sub: "" },
+    /* 对外投资：只算「还没收回来的本金」，已回款的部分已经变成现金，不重复计算 */
     { k: "对外投资", v: live(state.investments).reduce((a, it) => a + Math.max(0, investPrincipalCNY(it) - investBackCNY(it)), 0), c: "#ff8a3d", go: routeOf("投资").page, sub: routeOf("投资").sub },
     { k: "现金", v: t.cash, c: "var(--warn)", go: "deposits", sub: "cash" }
   ].filter(p => p.v > 0.004);
@@ -2207,7 +2195,7 @@ function renderOverview() {
           '<div><span>年利率</span><b class="num">' + num(x.l.rate).toFixed(2) + '%</b></div></div></div>'
       };
     });
-  /* 借入款：我们欠别人的，同样按到期日提醒 */
+  /* 借入款：我们欠别人的，同样按到期日提醒（未还本金或未付利息还有就提醒） */
   const borrowItems = live(state.borrowings).map(b => ({ b, c: loanCalc(b) }))
     .filter(x => (x.c.balance > 0.004 || x.c.interestDue > 0.004) &&
       (x.c.overdueDays > 0 || daysBetween(today, x.c.maturity) <= DUE))
@@ -2606,6 +2594,27 @@ function srcLabel(h) {
 const HOLD_KINDS = ["fund", "stock", "gold"];
 const HOLD_LABEL = { fund: "基金", stock: "股票", gold: "黄金" };
 const HOLD_UNIT = { fund: "份", stock: "股", gold: "克" };
+/* 代码 → 市场：字母=美股（AAPL / BRK.B），5 位数字=港股（00700），6 位数字=沪深 */
+function marketOf(code) {
+  const c = String(code || "").trim().toUpperCase();
+  if (/^[A-Z][A-Z.]{0,5}$/.test(c)) return "us";
+  if (/^\d{5}$/.test(c)) return "hk";
+  return "cn";
+}
+function curOfCode(code) { const m = marketOf(code); return m === "us" ? "USD" : (m === "hk" ? "HKD" : "CNY"); }
+const CUR_SYMBOL = { CNY: "¥", USD: "US$", HKD: "HK$" };
+function curSymbol(c) { return CUR_SYMBOL[String(c || "CNY")] || "¥"; }
+/* 外币折算人民币：优先用手填/自动取的汇率，取不到给一个保守默认值并标注 */
+function curRate(c) {
+  const k = String(c || "CNY");
+  if (k === "CNY") return 1;
+  const r = num((state.fx && state.fx.rates || {})[k]);
+  return r > 0 ? r : (k === "USD" ? 7.2 : 0.92);
+}
+function priceText(s) {
+  const d = String(s.cur || "CNY") === "CNY" ? 4 : 2;
+  return curSymbol(s.cur) + num(s.price).toFixed(d);
+}
 function holdKindOf(v) { return HOLD_KINDS.indexOf(v) >= 0 ? v : "fund"; }
 function holdTabNow() { return holdKindOf(uiFold.tab); }
 function setHoldTab(t) { uiFold.tab = holdKindOf(t); saveFold(); renderHoldings(); }
@@ -2661,7 +2670,9 @@ function renderHoldings() {
       '</div>' +
       '<div class="item-sum">' +
         '<span>成本价 <i>' + s.cps.toFixed(4) + '</i></span>' +
-        '<span>现价 <i>' + (s.hasPrice ? s.price.toFixed(4) : "—") + '</i></span>' +
+        '<span>现价 <i>' + (s.hasPrice ? priceText(s) : "—") + '</i></span>' +
+        (s.dayChg == null ? "" : '<span>涨跌额 <i class="' + (s.dayChg > 0 ? "up" : (s.dayChg < 0 ? "down" : "")) + '">' +
+          (s.dayChg > 0 ? "+" : "") + curSymbol(s.cur) + Math.abs(s.dayChg).toFixed(2) + '</i></span>') +
         (h.priceDate ? '<span>' + (h.kind === "fund" ? "净值日 " : (h.kind === "gold" ? "金价日 " : "行情日 ")) +
           '<i>' + esc(h.priceDate) + '</i></span>' : "") +
         '<span>持有 <i>' + fmtNum(s.shares, 2) + HOLD_UNIT[holdKindOf(h.kind)] + '</i></span>' +
@@ -2673,7 +2684,13 @@ function renderHoldings() {
       '<div class="kv">' +
         '<div><span>持有' + HOLD_UNIT[holdKindOf(h.kind)] + '数</span><b class="num">' + fmtNum(s.shares, 4) + '</b></div>' +
         '<div><span>成本价</span><b class="num">' + s.cps.toFixed(4) + '</b></div>' +
-        '<div><span>现价</span><b class="num">' + (s.hasPrice ? s.price.toFixed(4) : "—") + '</b></div>' +
+        '<div><span>现价</span><b class="num">' + (s.hasPrice ? priceText(s) : "—") + '</b></div>' +
+        (h.kind === "stock" ? '<div><span>最后更新</span><b class="num">' +
+          (h.quoteAt ? new Date(num(h.quoteAt)).toLocaleTimeString("zh-CN", { hour12: false }) : "—") + '</b></div>' : "") +
+        (h.kind === "stock" && marketOf(h.code) !== "cn" ? '<div><span>涨跌额</span><b class="num ' +
+          (s.dayChg == null ? "" : plClass(s.dayChg)) + '">' +
+          (s.dayChg == null ? "—" : (s.dayChg > 0 ? "+" : "") + curSymbol(s.cur) + Math.abs(s.dayChg).toFixed(2)) + '</b></div>' +
+          '<div><span>市值（人民币）</span><b class="num">' + money(s.mv) + '</b></div>' : "") +
         '<div><span>持仓成本</span><b class="num">' + money(s.cost) + '</b></div>' +
         (h.mmf ? '<div><span>万份收益折份额</span><b class="num">' + fmtNum(s.mmfAccrued, 4) +
           '<em class="hint" style="font-style:normal"> 份 · 已并入上方份额</em></b></div>' : "") +
@@ -2830,6 +2847,7 @@ function renderInvestments() {
     ["投资本金", money(t.amount), "", "", "", 'data-invsum="amount"'],
     ["累计分红", money(t.div), t.div > 0 ? "up" : "", "", "", 'data-invsum="div"'],
     ["投资回报率", t.roi.toFixed(2) + "%", t.div > 0 ? "up" : "", "", "", 'data-invsum="roi"'],
+    /* 两张回款卡片：只显示项目个数，和上面「项目数 2 个」同款同宽；点开看明细 */
     ["已回本金", live(state.investments).filter(function (it) { return investBackSum(it) > 0.004; }).length + " 个",
       "up", "点开看每个项目的回款", null, 'data-investlist="backed"'],
     ["未回本金", live(state.investments).filter(function (it) { return investBackSum(it) <= 0.004; }).length + " 个",
@@ -3041,7 +3059,7 @@ function renderLoans() {
         '<div><span>已付利息</span><b class="num down">' + money(c.interestPaid) + '</b></div>' +
         '<div><span>实际收款</span><b class="num">' + money(c.receivedCash) + '</b></div>' +
         '<div><span>未还本金</span><b class="num">' + money(c.balance) + '</b></div>' +
-        '<div title="只是应收，不计入总资产"><span>应收利息</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
+        '<div title="本金 × 年利率 × 年限 − 已付利息"><span>应收利息</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
         '<div><span>本息合计</span><b class="num">' + money(c.total) + '</b></div>' +
         '<div><span>到期日</span><b class="num">' + esc(c.maturity) + '</b></div>' +
         (num(l.overdueRate) > 0 ? '<div><span>逾期利率</span><b class="num">' + num(l.overdueRate).toFixed(2) + '%／年 · 罚息 ' + money(c.penalty) + '</b></div>' : '') +
@@ -3121,7 +3139,7 @@ function debtCardHTML(l, c, open, kind) {
       '<div><span>已还本金</span><b class="num down">' + money(c.repaidPrincipal) + '</b></div>' +
       '<div><span>' + (out ? "已付利息" : "已付利息") + '</span><b class="num down">' + money(c.interestPaid) + '</b></div>' +
       '<div><span>未还本金</span><b class="num">' + money(c.balance) + '</b></div>' +
-      '<div><span>' + (out ? "未付利息" : "应收利息") + '</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
+      '<div><span>' + (out ? "应付利息" : "应收利息") + '</span><b class="num up">' + money(c.interestDue) + '</b></div>' +
       '<div><span>到期日</span><b class="num">' + esc(c.maturity) + '</b></div>' +
     '</div>' +
     '<div class="rep-box"><div class="rep-head"><span>还款（本金）· ' + c.principalCount + ' 笔</span>' +
@@ -3633,6 +3651,7 @@ function sheetSubmitBtn() { return document.querySelector(".overlay button[type=
 function bindTermUnit(ov) {
   const form = ov && ov.querySelector("form");
   if (!form) return;
+  /* 年化系数：年 1、月 12、天 365；天数系数：年 365、月 365/12、天 1 */
   const rf = function (u) { return u === "year" ? 1 : (u === "month" ? 12 : 365); };
   const df = function (u) { return u === "year" ? 365 : (u === "month" ? 365 / 12 : 1); };
   const word = function (u) { return u === "year" ? "年" : (u === "month" ? "月" : "天"); };
@@ -3762,8 +3781,11 @@ function openHoldingForm(id, kind) {
       return '<label><input type="radio" name="kind" value="' + x + '"' + (k === x ? " checked" : "") +
         '><span>' + (x === "fund" ? "场外基金" : HOLD_LABEL[x]) + "</span></label>";
     }).join("") + "</div>") +
-    field(isGold ? "品种代码" : "代码", '<input name="code" inputmode="numeric" placeholder="' +
-      (isGold ? "如 AU9999 / 积存金" : "如 016778 / 600519") + '" value="' + esc(h ? h.code : "") + '">') +
+    field(isGold ? "品种代码" : "代码", '<input name="code" ' +
+      (k === "stock" ? 'inputmode="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"'
+        : 'inputmode="numeric"') + ' placeholder="' +
+      (isGold ? "如 AU9999 / 积存金" : (k === "stock" ? "如 AAPL / 00700 / 600519" : "如 016778")) +
+      '" value="' + esc(h ? h.code : "") + '">') +
     field("名称", '<input name="name" placeholder="' + (isGold ? "如 工行积存金" : "如 长城收益宝货币C") +
       '" value="' + esc(h ? h.name : "") + '">') +
     '<div class="field-row">' +
@@ -3791,7 +3813,7 @@ function openHoldingForm(id, kind) {
       const prevCps = num(h.shares) > 0 ? (num(h.cost) / num(h.shares)).toFixed(4) : "";
       const sameShares = Math.abs(shares - num(h.shares)) <= 1e-9;
       const sameCps = String(d.costPrice).trim() === prevCps;
-      h.kind = kk; h.code = d.code.trim(); h.name = d.name.trim();
+      h.kind = kk; h.code = normalizeHoldCode(d.code); h.name = d.name.trim();
       h.shares = shares;
       h.cost = (sameShares && sameCps) ? num(h.cost) : shares * cps;
       h.price = price; h.note = d.note.trim();
@@ -3800,7 +3822,7 @@ function openHoldingForm(id, kind) {
       if (h.source !== "auto") h.source = "manual";
     } else {
       state.holdings.push({
-        id: uid(), kind: kk, code: d.code.trim(), name: d.name.trim(),
+        id: uid(), kind: kk, code: normalizeHoldCode(d.code), name: d.name.trim(),
         shares, cost: shares * cps, price: mmf ? 1 : price, realized: 0, priceDate: "",
         source: "manual", mmf: mmf, moneyPer10k: null, mmfAccrued: 0, mmfLastDate: "", note: d.note.trim(), tx: []
       });
@@ -3809,6 +3831,39 @@ function openHoldingForm(id, kind) {
     commit();
     toast(h ? "持仓已更新" : "持仓已添加");
   });
+  bindHoldCode();
+}
+/* 股票代码允许字母：美股（AAPL、BRK.B）、港股 5 位、A 股 6 位都能输；
+   切到「股票」时把键盘从数字换成字母键盘，切回基金/黄金再换回来 */
+function normalizeHoldCode(v) {
+  const t = String(v == null ? "" : v).trim();
+  return /^[A-Za-z]/.test(t) ? t.toUpperCase() : t;
+}
+function bindHoldCode() {
+  const ov = Sheet.el;
+  if (!ov) return;
+  const codeEl = ov.querySelector('input[name="code"]');
+  if (!codeEl) return;
+  const ph = { fund: "如 016778", stock: "如 AAPL / 00700 / 600519", gold: "如 AU9999 / 积存金" };
+  function apply(kk) {
+    const isStock = kk === "stock";
+    codeEl.setAttribute("inputmode", isStock ? "text" : "numeric");
+    if (isStock) {
+      codeEl.setAttribute("autocapitalize", "characters");
+      codeEl.setAttribute("autocomplete", "off");
+      codeEl.setAttribute("autocorrect", "off");
+      codeEl.setAttribute("spellcheck", "false");
+    } else {
+      ["autocapitalize", "autocomplete", "autocorrect", "spellcheck"].forEach(function (a) { codeEl.removeAttribute(a); });
+    }
+    codeEl.placeholder = ph[kk] || "";
+    /* 已经填了美股代码再切回基金时不清空，只把大小写归一 */
+    codeEl.value = normalizeHoldCode(codeEl.value);
+  }
+  Array.prototype.forEach.call(ov.querySelectorAll('input[name="kind"]'), function (r) {
+    r.addEventListener("change", function () { apply(holdKindOf(r.value)); });
+  });
+  apply(holdKindOf((ov.querySelector('input[name="kind"]:checked') || {}).value));
 }
 
 /* ============ /* ============ 买卖 ============ */
@@ -3865,6 +3920,7 @@ function openTrade(id, side) {
     "并在「现金 → 收支记录」留一条<b>不可删除</b>的记录（回这里改流水，那条记录会跟着变）。</p>";
   const sh = Sheet.open(side === "buy" ? "买入" : "卖出", body, function (d) {
     const price0 = num(d.price);
+    /* 只填了金额也能成交：按成交价换算份数（四位小数，四舍五入） */
     const qty = num(d.qty) > 0 ? num(d.qty)
       : (num(d.amount) > 0 && price0 > 0 ? Math.round(num(d.amount) / price0 * 10000) / 10000 : 0);
     const price = price0, fee = Math.max(0, num(d.fee));
@@ -3898,6 +3954,7 @@ function openTrade(id, side) {
   bindTradeAmount(sh && sh.el ? sh.el : document);
   return sh;
 }
+/* 份数 ↔ 金额 双向联动：改金额按成交价算份数，改份数算金额，改价格按最后编辑的那栏重算 */
 function bindTradeAmount(root) {
   const box = root && root.querySelector ? root : document;
   const q = box.querySelector('input[name="qty"]'), a = box.querySelector('input[name="amount"]'),
@@ -5203,6 +5260,57 @@ async function autoRefreshTick() {
   await refreshAll(true);
   renderRefreshStatus();
 }
+/* 美股 / 港股：5 秒轮询一次（只在有这两类持仓、且开关打开、且页面在前台时跑）；
+   取不到就保持上一次有效价并在状态行标红，绝不写 0 */
+let ovTimer = null, ovBusy = false;
+function ovHoldings() {
+  return live(state.holdings).filter(function (h) {
+    return h.kind === "stock" && marketOf(h.code) !== "cn";
+  });
+}
+function ovAutoOn() {
+  const el = document.getElementById("usAuto5s");
+  return el ? el.checked : true;
+}
+async function ovTick(silent) {
+  const list = ovHoldings();
+  if (!list.length || ovBusy) return;
+  if (document.hidden || lockEl) return;
+  if (!ovAutoOn() || !state.settings.autoRefresh) return;
+  ovBusy = true;
+  try {
+    for (let i = 0; i < list.length; i++) {
+      const h = list[i];
+      try {
+        const q = await quoteFor(h);
+        if (applyQuote(h, q)) h.quoteFail = "";
+        else throw new Error("无有效报价");
+      } catch (e) {
+        h.quoteFail = e && e.message ? e.message : "行情接口失败";
+      }
+    }
+    commit(); render();
+    if (!silent) toast("已刷新美股 / 港股报价");
+  } finally {
+    ovBusy = false;
+    paintOvStamp();
+  }
+}
+function paintOvStamp() {
+  const el = document.getElementById("usQuoteAt");
+  if (!el) return;
+  const list = ovHoldings();
+  if (!list.length) { el.textContent = "最后更新：暂无美股 / 港股持仓"; return; }
+  const fails = list.filter(function (h) { return h.quoteFail; });
+  const last = list.reduce(function (a, h) { return Math.max(a, num(h.quoteAt)); }, 0);
+  el.textContent = "最后更新：" + (last ? new Date(last).toLocaleTimeString("zh-CN", { hour12: false }) : "—") +
+    (fails.length ? " · 数据源失败：" + fails[0].quoteFail : "");
+}
+function startOverseasTicker() {
+  if (ovTimer) clearInterval(ovTimer);
+  ovTimer = setInterval(function () { ovTick(true); }, 5000);
+  setTimeout(function () { ovTick(true); }, 600);
+}
 function startAutoRefresh() {
   if (autoTimer) clearInterval(autoTimer);
   autoTimer = setInterval(function () { autoRefreshTick(); }, 15000);
@@ -5298,6 +5406,36 @@ function tencentQuote(digits) {
   });
 }
 async function fetchStockQuote(code) {
+  const sym = String(code || "").trim().toUpperCase();
+  const mk = marketOf(sym);
+  if (mk !== "cn") {
+    /* 美股 / 港股：东方财富同一套报价接口，靠 secid 前缀区分市场。
+       美股依次试纳斯达克 105、纽交所 106、美交所 107；港股 116。取不到就明确抛错，绝不写 0 */
+    const list = mk === "us" ? ["105.", "106.", "107."] : ["116."];
+    let lastErr = null;
+    for (let i = 0; i < list.length; i++) {
+      try {
+        const d = await jsonp("https://push2.eastmoney.com/api/qt/stock/get?secid=" + list[i] + encodeURIComponent(sym) +
+          "&fields=f43,f57,f58,f59,f60,f169,f170,f86", 7000);
+        const x = d && d.data;
+        if (x && Number(x.f43) > 0) {
+          const dec = isFinite(x.f59) ? Number(x.f59) : 2;
+          const ts = isFinite(x.f86) && Number(x.f86) > 0 ? new Date(Number(x.f86) * 1000) : null;
+          return {
+            price: Number(x.f43) / Math.pow(10, dec),
+            name: x.f58 ? String(x.f58) : sym,
+            prevPrice: isFinite(x.f60) && Number(x.f60) > 0 ? Number(x.f60) / Math.pow(10, dec) : null,
+            pct: isFinite(x.f170) ? Number(x.f170) / 100 : null,
+            date: ts ? bjDayOf(ts) : "",
+            cur: mk === "us" ? "USD" : "HKD",
+            src: "eastmoney"
+          };
+        }
+        lastErr = new Error(x && Number(x.f43) === 0 ? "暂无成交价（可能休市）" : "无行情数据");
+      } catch (e) { lastErr = e; }
+    }
+    throw new Error((lastErr ? lastErr.message : "行情失败") + "（" + sym + "）");
+  }
   const c = String(code).replace(/\D/g, "");
   if (c.length !== 6) throw new Error("股票代码需 6 位");
   const secid = (/^[56]/.test(c) ? "1." : "0.") + c;
@@ -5424,7 +5562,7 @@ async function quoteFor(h) {
     /* 6 位纯数字当 ETF（如 518880 黄金 ETF），走股票那条路；其余按上金所合约 */
     if (/^\d{6}$/.test(String(h.code || "").trim())) {
       const q = await fetchStockQuote(h.code);
-      return { price: q.price, priceDate: q.date || todayISO(), name: q.name || "", prevPrice: q.prevPrice, pct: q.pct };
+      return { price: q.price, priceDate: q.date || todayISO(), name: q.name || "", prevPrice: q.prevPrice, pct: q.pct, cur: q.cur || "CNY" };
     }
     const q = await fetchGoldQuote(h.code);
     /* src 一路带到卡片上：上金所 / 上金所·日K / 国际折算 */
@@ -5445,12 +5583,14 @@ async function quoteFor(h) {
     };
   }
   const q = await fetchStockQuote(h.code);
-  return { price: q.price, priceDate: q.date || todayISO(), name: q.name || "", prevPrice: q.prevPrice, pct: q.pct };
+  return { price: q.price, priceDate: q.date || todayISO(), name: q.name || "", prevPrice: q.prevPrice, pct: q.pct, cur: q.cur || "CNY" };
 }
 /* 脏数据（0、非数值、负数）一律不写，保留上一次有效值 */
 function applyQuote(h, p) {
   if (!p || !isFinite(p.price) || p.price <= 0) return false;
   h.price = p.price;
+  h.quoteAt = Date.now();
+  if (p.cur) h.cur = p.cur;
   if (p.priceDate) h.priceDate = p.priceDate;
   if (p.mmf !== undefined) h.mmf = !!p.mmf;
   /* 国际金价折算不是上金所报价，差 1~2% 很正常：卡片上要说清楚 */
@@ -5582,6 +5722,7 @@ function investRisk(it) {
   if (days <= 365 * 3) return { text: "中风险", cls: "risk-mid", days: days };
   return { text: "高风险", cls: "risk-high", days: days };
 }
+/* 已回款本金的折人民币口径：回款按项目汇率折算，和本金同基准 */
 function investBackCNY(it) {
   const base = (it && it.currency) || "CNY";
   return cash2(((it && it.repays) || []).reduce(function (a, x) {
@@ -7209,6 +7350,7 @@ document.addEventListener("click", function (e) {
     if (!confirm("删掉这笔回款？会从账户里扣回 " + moneyFull(rec0.amount))) return;
     it0.repays = (it0.repays || []).filter(function (x) { return x.id !== rid0; });
     it0.updatedAt = Date.now();
+    /* 先撤流水（按反方向退现金），找不到流水才用金额兜底 */
     if (!removeCashFlows("investRepay", rid0, "")) cashDelta(-num(rec0.amount), rec0.cashAccount);
     commit(); render();
     toast("已删回款 " + money(rec0.amount));
@@ -7440,6 +7582,8 @@ document.addEventListener("click", function (e) {
     const host = act.closest("[data-id]");
     const id = host && host.dataset.id;
     const a = act.dataset.act;
+    /* 借入、项目款项也各有自己的表单：漏掉就会掉进 openHoldingForm(id)，
+       id 对不上任何持仓 → 什么都不发生（「编辑点了没反应」就是这里） */
     const kind = state.loans.some(x => x.id === id) ? "loan"
       : ((state.borrowings || []).some(x => x.id === id) ? "borrow"
       : ((state.collections || []).some(x => x.id === id) ? "collect"
@@ -8323,92 +8467,6 @@ function exportBackup(id) {
   }
 }
 
-/* ============ PWA：Service Worker / 安装 / 离线 ============ */
-const SW_SUPPORTED = ("serviceWorker" in navigator) && /^https?:$/.test(location.protocol);
-let swReg = null;
-
-function setBadge(text, tone) {
-  const el = $("#pwaBadge");
-  if (!el) return;
-  el.textContent = text;
-  el.style.background = tone === "ok" ? "rgba(14,156,109,.14)" : (tone === "warn" ? "rgba(181,115,10,.16)" : "var(--card2)");
-  el.style.color = tone === "ok" ? "var(--down)" : (tone === "warn" ? "var(--warn)" : "var(--muted)");
-}
-
-async function initPWA() {
-  const stateEl = $("#pwaState");
-  if (!stateEl) return;   // 锁屏时主内容已被清空
-  if (!SW_SUPPORTED) {
-    setBadge("不可用", "warn");
-    stateEl.textContent = location.protocol === "file:"
-      ? "当前用本地文件（file://）打开：记账、计息、导出都能用，但没有 Service Worker，也无法添加到主屏幕。想要桌面图标，把本站部署到 https 网址即可。"
-      : "当前环境不支持 Service Worker，首屏无法离线缓存。";
-    return;
-  }
-  try {
-    swReg = await navigator.serviceWorker.register("sw.js", { scope: "./" });
-    setBadge("已启用", "ok");
-    let cacheInfo = "首屏缓存状态未知";
-    try {
-      const keys = await caches.keys();
-      const hit = keys.filter(function (k) { return k.indexOf("licai-jizhang-") === 0; })[0];
-      cacheInfo = hit ? "首屏已缓存（" + hit.replace("licai-jizhang-", "v") + "）" : "首屏尚未缓存，刷新一次即可";
-    } catch (e) { /* 无 Cache Storage 权限 */ }
-    const standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
-      (navigator.standalone === true);
-    stateEl.textContent = "Service Worker 已注册，断网可直接打开。" + cacheInfo + "。" +
-      (standalone ? "当前已在「主屏幕 App」模式下运行。" : "在 Safari 里点「分享 → 添加到主屏幕」即可装到桌面。");
-  } catch (err) {
-    setBadge("注册失败", "warn");
-    stateEl.textContent = "Service Worker 注册失败：" + (err && err.message ? err.message : "未知错误") +
-      "。请确认是通过 https 访问，且 sw.js 与 index.html 在同一目录。";
-  }
-}
-
-function syncNet() {
-  const bar = $("#netbar");
-  if (!bar) return;
-  bar.hidden = navigator.onLine !== false;
-}
-
-$("#btnInstallHelp").addEventListener("click", function () {
-  Sheet.open("添加到主屏幕", '<ol class="steps">' +
-    "<li>用 Safari 打开本站的 https 网址（本地文件 file:// 不行，文件 App 预览也不行）。</li>" +
-    "<li>点底部工具栏中间的「分享」按钮（方框加向上箭头）。</li>" +
-    "<li>在弹出列表里往下找「添加到主屏幕」，名称保持「財PFM」，点右上角「添加」。</li>" +
-    "<li>回到桌面，点新出现的图标即可全屏打开，没有地址栏和工具栏。</li>" +
-    "<li>首次打开后会自动缓存首屏，之后断网也能进；行情刷新需要联网。</li>" +
-    "</ol>", function () { return true; }, "知道了");
-});
-
-$("#btnUpdate").addEventListener("click", async function () {
-  if (!swReg) { toast("当前没有可更新的 Service Worker"); return; }
-  try {
-    await swReg.update();
-    toast("已检查更新；有新版本时，重新打开 App 即生效");
-  } catch (e) {
-    toast("检查更新失败：" + (e.message || "网络错误"));
-  }
-});
-
-window.addEventListener("online", syncNet);
-window.addEventListener("offline", syncNet);
-syncNet();
-
-/* manifest 快捷方式：?action=dep|holding（锁屏时交给解锁后再执行） */
-(function handleActionParam() {
-  try {
-    const a = new URLSearchParams(location.search).get("action");
-    if (!a) return;
-    setTimeout(function () {
-      if (document.querySelector(".lock")) return;
-      if (a === "dep") { switchTab("deposits"); openDepositForm(null); }
-      else if (a === "holding") { switchTab("holdings"); openHoldingForm(null, "fund"); }
-      else if (a === "loan") { switchTab("loans"); openLoanForm(null); }
-    }, 700);
-  } catch (e) { /* 忽略 */ }
-})();
-
 /* ============ 视口锁定：禁掉一切缩放 ============ */
 const VIEWPORT_CONTENT = "width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover";
 function initViewportLock() {
@@ -8469,12 +8527,12 @@ function bootApp() {
   startProbeWatch();
   initCrossTab();
   startAutoRefresh();
+  startOverseasTicker();
   setTimeout(function () { autoRefreshTick(); }, 300);   // 解锁后立刻拉一次
   if (!sec().enabled && !sec().asked) setTimeout(function () { openSetPassword(true); }, 600);
 }
 initViewportLock();
 bootApp();
-initPWA();
 window.addEventListener("error", function (ev) { console.warn("页面错误", ev.message); });
 </script>
 </body>
