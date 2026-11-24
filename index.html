@@ -1195,7 +1195,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.96";
+const APP_VERSION = "2026-11-20.97";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -3849,19 +3849,25 @@ function openTrade(id, side) {
   const body =
     field("标的", '<div class="static">' + esc(h.name || h.code) + ' <span class="code">' + esc(h.code) + "</span></div>") +
     '<div class="field-row">' +
-      field((side === "buy" ? "买入" : "卖出") + unit + "数", '<input name="qty" type="text" inputmode="decimal" required placeholder="0">') +
-      field("成交价（元/" + unit + "）", '<input name="price" type="text" inputmode="decimal" required value="' + (s.price || "") + '">') +
+      field((side === "buy" ? "买入" : "卖出") + unit + "数", '<input name="qty" type="text" inputmode="decimal" placeholder="填金额自动算">') +
+      field("成交金额（元）", '<input name="amount" type="text" inputmode="decimal" placeholder="填金额也行">') +
     "</div>" +
     '<div class="field-row">' +
+      field("成交价（元/" + unit + "）", '<input name="price" type="text" inputmode="decimal" required value="' + (s.price || "") + '">') +
       field("手续费（元）", '<input name="fee" type="text" inputmode="decimal" value="0">') +
+    "</div>" +
+    '<div class="field-row">' +
       field("成交日期", '<input name="date" type="date" value="' + todayISO() + '">') +
     "</div>" +
     field("结算账户", '<select name="account">' + tradeAccountOptions("") + "</select>") +
     '<p class="hint">当前持仓 ' + fmtNum(s.shares, 4) + " " + unit + "，成本价 " + s.cps.toFixed(4) +
-    " 元。卖出按平均成本结转，差额计入已实现盈亏；这笔钱会同时记到上面的账户里，" +
+    " 元。份数与金额两边都能填（按成交价自动换算）；卖出按平均成本结转，差额计入已实现盈亏；这笔钱会同时记到上面的账户里，" +
     "并在「现金 → 收支记录」留一条<b>不可删除</b>的记录（回这里改流水，那条记录会跟着变）。</p>";
-  Sheet.open(side === "buy" ? "买入" : "卖出", body, function (d) {
-    const qty = num(d.qty), price = num(d.price), fee = Math.max(0, num(d.fee));
+  const sh = Sheet.open(side === "buy" ? "买入" : "卖出", body, function (d) {
+    const price0 = num(d.price);
+    const qty = num(d.qty) > 0 ? num(d.qty)
+      : (num(d.amount) > 0 && price0 > 0 ? Math.round(num(d.amount) / price0 * 10000) / 10000 : 0);
+    const price = price0, fee = Math.max(0, num(d.fee));
     if (qty <= 0) { toast("数量需大于 0"); return false; }
     if (price <= 0) { toast("成交价需大于 0"); return false; }
     const date = isDateStr(d.date) ? d.date : todayISO();
@@ -3889,6 +3895,29 @@ function openTrade(id, side) {
     commit();
     toast(side === "buy" ? "已记录买入并扣款" : "已记录卖出并到账");
   }, side === "buy" ? "确认买入" : "确认卖出");
+  bindTradeAmount(sh && sh.el ? sh.el : document);
+  return sh;
+}
+function bindTradeAmount(root) {
+  const box = root && root.querySelector ? root : document;
+  const q = box.querySelector('input[name="qty"]'), a = box.querySelector('input[name="amount"]'),
+    p = box.querySelector('input[name="price"]');
+  if (!q || !a || !p) return;
+  let last = "q";
+  const round4 = function (x) { return Math.round(x * 10000) / 10000; };
+  const round2 = function (x) { return Math.round(x * 100) / 100; };
+  function fromAmount() {
+    const pr = num(p.value), amt = num(a.value);
+    if (pr > 0) q.value = amt > 0 ? String(round4(amt / pr)) : "";
+  }
+  function fromQty() {
+    const pr = num(p.value), qv = num(q.value);
+    if (pr > 0 && qv > 0) a.value = String(round2(qv * pr));
+  }
+  q.addEventListener("input", function () { last = "q"; fromQty(); });
+  a.addEventListener("input", function () { last = "a"; fromAmount(); });
+  p.addEventListener("input", function () { if (last === "a") fromAmount(); else fromQty(); });
+  if (num(q.value) > 0 || num(a.value) > 0) { if (last === "a") fromAmount(); else fromQty(); }
 }
 /* 流水：列表 → 改 / 删（改金额、日期、账户都会同步那条收支记录） */
 function openTxList(hid) {
