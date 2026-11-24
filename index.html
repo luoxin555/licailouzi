@@ -1195,7 +1195,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.95";
+const APP_VERSION = "2026-11-20.96";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -2182,7 +2182,7 @@ function renderOverview() {
         html: '<div class="item" data-goto="deposits" data-goto-sub="dep" data-goto-id="' + esc(x.d.id) + '"' +
           ' role="button" tabindex="0" aria-label="查看这笔定存的明细"><div class="item-top"><div class="item-title"><span class="tag dep">定存</span>' +
           '<b>' + esc(x.d.bank) + (x.d.product ? " · " + esc(x.d.product) : "") + '</b></div>' +
-          '<div class="item-value"><div class="num strong">' + money(x.d.principal, 0) + '</div>' +
+          '<div class="item-value"><div class="num strong">' + moneyFull(x.d.principal) + '</div>' +
           '<div class="small ' + (x.c.matured ? "warn" : "") + '">' + tag + '</div></div></div>' +
           '<div class="kv"><div><span>到期日</span><b class="num">' + x.c.maturity + '</b></div>' +
           '<div><span>到期利息</span><b class="num up">' + money(x.c.interest) + '</b></div>' +
@@ -2199,7 +2199,7 @@ function renderOverview() {
         html: '<div class="item" data-goto="loans" data-goto-sub="loan" data-goto-id="' + esc(x.l.id) + '"' +
           ' role="button" tabindex="0" aria-label="查看这笔借款的明细"><div class="item-top"><div class="item-title"><span class="tag loan">借款</span>' +
           '<b>' + esc(x.l.borrower || "未填借款人") + '</b></div>' +
-          '<div class="item-value"><div class="num strong">' + money(x.c.balance + x.c.interestDue, 0) + '</div>' +
+          '<div class="item-value"><div class="num strong">' + moneyFull(x.c.balance + x.c.interestDue) + '</div>' +
           '<div class="small ' + (x.c.overdueDays > 0 ? "warn" : "up") + '">' + tag + '</div></div></div>' +
           '<div class="kv"><div><span>应还金额</span><b class="num">' + money(x.c.balance + x.c.interestDue) + '</b></div>' +
           '<div><span>未还本金</span><b class="num">' + money(x.c.balance) + '</b></div>' +
@@ -2219,7 +2219,7 @@ function renderOverview() {
         html: '<div class="item" data-goto="loans" data-goto-sub="borrow" data-goto-id="' + esc(x.b.id) + '"' +
           ' role="button" tabindex="0" aria-label="查看这笔借入款的明细"><div class="item-top"><div class="item-title"><span class="tag inv">借入</span>' +
           '<b>' + esc(x.b.name || "未填出借人") + '</b></div>' +
-          '<div class="item-value"><div class="num strong">' + money(x.c.balance + x.c.interestDue, 0) + '</div>' +
+          '<div class="item-value"><div class="num strong">' + moneyFull(x.c.balance + x.c.interestDue) + '</div>' +
           '<div class="small ' + (x.c.overdueDays > 0 ? "warn" : "up") + '">' + tag + '</div></div></div>' +
           '<div class="kv"><div><span>应还金额</span><b class="num">' + money(x.c.balance + x.c.interestDue) + '</b></div>' +
           '<div><span>未还本金</span><b class="num">' + money(x.c.balance) + '</b></div>' +
@@ -2240,7 +2240,7 @@ function renderOverview() {
         html: '<div class="item" data-goto="loans" data-goto-sub="collect" data-goto-id="' + esc(x.c.id) + '"' +
           ' role="button" tabindex="0" aria-label="查看这个项目款项的明细"><div class="item-top"><div class="item-title"><span class="tag dep">项目款项</span>' +
           '<b>' + esc(x.c.project || "未命名项目") + '</b></div>' +
-          '<div class="item-value"><div class="num strong">' + money(x.left, 0) + '</div>' +
+          '<div class="item-value"><div class="num strong">' + moneyFull(x.left) + '</div>' +
           '<div class="small ' + (late ? "warn" : "up") + '">' + tag + '</div></div></div>' +
           '<div class="kv"><div><span>应收</span><b class="num">' + money(x.c.amount) + '</b></div>' +
           '<div><span>未入账</span><b class="num up">' + money(x.left) + '</b></div>' +
@@ -2655,7 +2655,7 @@ function renderHoldings() {
       '<div class="item-top">' +
         '<div class="item-title"><span class="tag ' + holdKindOf(h.kind) + '">' + HOLD_LABEL[holdKindOf(h.kind)] + '</span>' +
           '<b>' + esc(h.name || "未命名") + '</b><span class="code">' + esc(h.code || "—") + '</span></div>' +
-        '<div class="item-value"><div class="num strong">' + (s.hasPrice ? money(s.mv) : "—") + '</div>' +
+        '<div class="item-value"><div class="num strong">' + (s.hasPrice ? moneyFull(s.mv) : "—") + '</div>' +
           '<div class="num small ' + (s.hasPrice ? plClass(s.pl) : "") + '">' +
           (s.hasPrice ? signedMoney(s.pl) + ' · ' + pct(s.plPct) : "暂无行情 · 未计算盈亏") + '</div></div>' +
       '</div>' +
@@ -2784,7 +2784,7 @@ function investCard(it) {
           '<span class="tag ' + investRisk(it).cls + '">' + investRisk(it).text + '</span>' +
           (cur ? '<span class="code">' + esc(cur) + '</span>' : '') +
           (photos ? '<span class="code">📷' + photos + '</span>' : '') + '</div>' +
-        '<div class="item-value"><div class="num strong">' + money(investPrincipalCNY(it), 0) + '</div>' +
+        '<div class="item-value"><div class="num strong">' + moneyFull(investPrincipalCNY(it)) + '</div>' +
           '<div class="num small up">' + (div > 0 ? "分红 " + money(div) : "还没分红") + '</div></div>' +
       '</div>' +
       '<div class="item-sum">' +
@@ -2917,7 +2917,7 @@ function renderDeposits() {
       '<div class="item-top">' +
         '<div class="item-title"><span class="tag dep">定存</span><b>' + esc(d.bank) + '</b>' +
           (d.product ? '<span class="code">' + esc(d.product) + '</span>' : '') + '</div>' +
-        '<div class="item-value"><div class="num strong">' + money(d.principal, 0) + '</div>' +
+        '<div class="item-value"><div class="num strong">' + moneyFull(d.principal) + '</div>' +
           '<div class="num small ' + (c.matured ? "warn" : "up") + '">' +
           (c.early ? "提前支取 · 利息 " + money(c.accrued) : (c.matured ? "已到期可支取" : "已计 " + money(c.accrued))) +
           '</div></div>' +
@@ -3019,12 +3019,12 @@ function renderLoans() {
       '<div class="item-head" data-fold="loan" role="button" tabindex="0" aria-expanded="' + (open ? "true" : "false") + '">' +
       '<div class="item-top">' +
         '<div class="item-title"><span class="tag loan">借款</span><b>' + esc(l.borrower || "未填借款人") + '</b>' +
-          '<span class="code">' + money(l.amount, 0) + '</span></div>' +
-        '<div class="item-value"><div class="num strong">' + money(c.balance, 0) + '</div>' +
+          '<span class="code">' + moneyFull(l.amount) + '</span></div>' +
+        '<div class="item-value"><div class="num strong">' + moneyFull(c.balance) + '</div>' +
           '<div class="num small ' + tone + '">' + tag + '</div></div>' +
       '</div>' +
       '<div class="item-sum">' +
-        '<span>未还本金 <i>' + money(c.balance, 0) + '</i></span>' +
+        '<span>未还本金 <i>' + moneyFull(c.balance) + '</i></span>' +
         '<span>' + rateText(l) + '</span>' +
         '<span>到期 <i>' + esc(c.maturity) + '</i></span>' +
         (c.overpaid > 0.004 ? '<span class="warn">多收 <i>' + money(c.overpaid) + '</i></span>' : '') +
@@ -3101,12 +3101,12 @@ function debtCardHTML(l, c, open, kind) {
     '<div class="item-head" data-fold="' + (out ? "borrow" : "loan") + '" role="button" tabindex="0" aria-expanded="' + (open ? "true" : "false") + '">' +
     '<div class="item-top">' +
       '<div class="item-title"><span class="tag ' + (out ? "inv" : "loan") + '">' + (out ? "借入" : "借出") + '</span><b>' + esc(who) + '</b>' +
-        '<span class="code">' + money(l.amount, 0) + '</span></div>' +
-      '<div class="item-value"><div class="num strong">' + money(c.balance, 0) + '</div>' +
+        '<span class="code">' + moneyFull(l.amount) + '</span></div>' +
+      '<div class="item-value"><div class="num strong">' + moneyFull(c.balance) + '</div>' +
         '<div class="num small ' + tone + '">' + tag + '</div></div>' +
     '</div>' +
     '<div class="item-sum">' +
-      '<span>' + (out ? "未还本金" : "未还本金") + ' <i>' + money(c.balance, 0) + '</i></span>' +
+      '<span>' + (out ? "未还本金" : "未还本金") + ' <i>' + moneyFull(c.balance) + '</i></span>' +
       '<span>' + rateText(l) + '</span>' +
       '<span>到期 <i>' + esc(c.maturity) + '</i></span>' +
       (photoN ? '<span>照片 <i>' + photoN + '</i></span>' : '') +
@@ -3204,9 +3204,9 @@ function renderCollections() {
     return '<article class="item' + (open ? " is-open" : "") + '" data-id="' + esc(c.id) + '">' +
       '<div class="item-head" data-fold="collect" role="button" tabindex="0" aria-expanded="' + (open ? "true" : "false") + '">' +
       '<div class="item-top"><div class="item-title"><span class="tag inv">入账</span><b>' + esc(c.project || "未命名项目") + '</b>' +
-        '<span class="code">' + money(c.amount, 0) + '</span></div>' +
-      '<div class="item-value"><div class="num strong">' + money(x.got, 0) + '</div>' +
-        '<div class="num small ' + (x.done ? "down" : "up") + '">' + (x.done ? "已收齐" : "未入账 " + money(x.left, 0)) + '</div></div></div>' +
+        '<span class="code">' + moneyFull(c.amount) + '</span></div>' +
+      '<div class="item-value"><div class="num strong">' + moneyFull(x.got) + '</div>' +
+        '<div class="num small ' + (x.done ? "down" : "up") + '">' + (x.done ? "已收齐" : "未入账 " + moneyFull(x.left)) + '</div></div></div>' +
       '<div class="item-sum"><span>已入账 <i>' + money(x.got) + '</i></span><span>未入账 <i>' + money(x.left) + '</i></span>' +
         '<span>入账 ' + (c.entries || []).length + ' 笔</span></div><span class="chev" aria-hidden="true"></span></div>' +
       '<div class="fold"><div class="kv">' +
