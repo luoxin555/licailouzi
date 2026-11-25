@@ -1,6 +1,6 @@
 {
-  "name": "理财记账 · 持仓与定存",
-  "short_name": "理财记账",
+  "name": "財PFM",
+  "short_name": "財PFM",
   "description": "单文件个人理财记账：基金股票买卖盈亏、银行定期存款到期与计息、总资产汇总，数据只存本机。",
   "lang": "zh-CN",
   "dir": "ltr",
@@ -19,7 +19,7 @@
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "新增定存", "short_name": "定存", "url": "./index.html?action=dep" },
-    { "name": "新增持仓", "short_name": "持仓", "url": "./index.html?action=holding" }
+    { "name": "財PFM", "short_name": "財PFM", "url": "./index.html?action=dep" },
+    { "name": "財PFM", "short_name": "財PFM", "url": "./index.html?action=holding" }
   ]
 }
