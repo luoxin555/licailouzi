@@ -1184,7 +1184,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.105";
+const APP_VERSION = "2026-11-20.106";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -1700,7 +1700,16 @@ function save() {
   scheduleSnapshot();   // 每次写入后尝试存快照（内部去重，锁屏时跳过）
   broadcastChange();    // 通知同一网址的其他窗口/标签页
 }
-function commit() { save(); render(); }
+function commit() {
+  /* 每次成功落盘就清掉「失败回滚」快照：否则下一次被拒的操作会把这份旧快照盖回去，
+     把中间几次成功的改动一起回滚掉（先记一笔再记一笔超额支出，前一笔就白记了） */
+  CASH_TX = null;
+  /* 成功落盘说明余额已经够了，之前那次「余额不足」的待办提示一并作废，
+     否则它会在这笔之后弹出来，看着像这笔也没保存成功 */
+  CASH_SHORT.v = null;
+  save();
+  render();
+}
 
 /* ============ 计算 ============ */
 function depositCalc(dep, todayStr) {
