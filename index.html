@@ -1182,7 +1182,7 @@ function fmtStampText(v) {
   return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
     pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-const APP_VERSION = "2026-11-20.102";
+const APP_VERSION = "2026-11-20.103";
 /* normalize 丢弃掉的无效还款记录数（金额 ≤ 0），load() 里提示一次 */
 let droppedReps = 0;
 /* 老结构 {amount, interest} 迁移成 {principal, interest} 的条数（启动时提示一次） */
@@ -2106,7 +2106,9 @@ function renderOverview() {
     { k: "借出", v: t.loanBalance, c: "#7c4dff", go: "loans", sub: "" },
 
     /* 对外投资：只算「还没收回来的本金」，已回款的部分已经变成现金，不重复计算 */
-    { k: "对外投资", v: live(state.investments).reduce((a, it) => a + Math.max(0, investPrincipalCNY(it) - investBackCNY(it)), 0), c: "#ff8a3d", go: routeOf("投资").page, sub: routeOf("投资").sub },
+    /* 对外投资：只算「还没收回来的本金」，已回款的部分已经变成现金，不重复计算；
+       点这一行跳到总览里那张投资卡片（不是投资页签） */
+    { k: "投资", v: live(state.investments).reduce((a, it) => a + Math.max(0, investPrincipalCNY(it) - investBackCNY(it)), 0), c: "#ff8a3d", go: "overview", sub: "invest" },
     { k: "现金", v: t.cash, c: "var(--warn)", go: "deposits", sub: "cash" }
   ].filter(p => p.v > 0.004);
   const sum = parts.reduce((a, p) => a + p.v, 0);
@@ -2118,7 +2120,7 @@ function renderOverview() {
     allocEl.innerHTML = parts.map(p =>
       '<i style="width:' + (p.v / sum * 100).toFixed(2) + '%;background:' + p.c + '"></i>').join("");
     legendEl.innerHTML = parts.map(p =>
-      (function () { const r = routeOf(p.k); return '<span data-goto="' + r.page + '" data-goto-sub="' + esc(r.sub || "") + '" role="button" tabindex="0" aria-label="查看' + esc(p.k) + '明细">'; })() +
+      (function () { const r0 = routeOf(p.k); const r = { page: p.go || r0.page, sub: p.sub !== undefined ? p.sub : r0.sub }; return '<span data-goto="' + r.page + '" data-goto-sub="' + esc(r.sub || "") + '" role="button" tabindex="0" aria-label="查看' + esc(p.k) + '明细">'; })() +
       '<i class="dot" style="background:' + p.c + '"></i>' + p.k +
       '<em>' + money(p.v, 0) + ' · ' + (p.v / sum * 100).toFixed(1) + '%</em></span>').join("");
   }
@@ -2126,7 +2128,7 @@ function renderOverview() {
   const noteEl = $("#ovAllocNote");
   if (noteEl) {
     noteEl.textContent = parts.length
-      ? "合计 " + money(t.total, 0) + "（对外投资只算未收回本金）" + (t.cash < 0 ? "（现金 " + money(t.cash, 0) + " 为负，未计入占比）" : "")
+      ? "合计 " + money(t.total, 0) + "（投资只算未收回本金）" + (t.cash < 0 ? "（现金 " + money(t.cash, 0) + " 为负，未计入占比）" : "")
       : "";
   }
   /* 第 5 项 = 点这个格子去哪个页签；没写就不给点（将来加了不对应任何页签的指标，不会被误点） */
@@ -5379,19 +5381,51 @@ const FUND_API = {
       "&RANGE=y&deviceid=1&plat=Android&product=EFund&version=1";
   }
 };
-/* 按日期取基金单位净值：取「净值日 <= 所选日期」里最近的一条（那天没净值就取上一个交易日） */
+/* 按日期取基金单位净值：取「净值日 <= 所选日期」里最近的一条（那天没净值就取上一个交易日）。
+   原来走 FundNetDiagram.ashx，RANGE 只回最近 1 个月（1y / 12y / all 都是 23 条，3y 是 61 条），
+   所以选到一个月前的日期就查不到；改用 pingzhongdata 的全量净值序列（上市以来每一天，约 200 KB），
+   同一只基金一次加载后缓存在内存里，之后翻日期不再发请求 */
+const fundHistCache = {};
+function loadFundHistory(code) {
+  const c = String(code).replace(/\D/g, "");
+  if (fundHistCache[c]) return Promise.resolve(fundHistCache[c]);
+  return new Promise(function (resolve, reject) {
+    const s = document.createElement("script");
+    let done = false;
+    const timer = setTimeout(function () { finish(new Error("净值接口超时")); }, 15000);
+    function finish(err, list) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      s.onload = s.onerror = null;
+      if (s.parentNode) s.parentNode.removeChild(s);
+      try { delete window.Data_netWorthTrend; } catch (e) { window.Data_netWorthTrend = null; }
+      if (err) reject(err); else resolve(list);
+    }
+    s.onload = function () {
+      const arr = window.Data_netWorthTrend;
+      if (!Array.isArray(arr) || !arr.length) return finish(new Error("净值接口无数据"));
+      const list = arr.map(function (r) {
+        return { date: bjDayOf(new Date(Number(r.x))), nav: Number(r.y) };
+      }).filter(function (r) { return isDateStr(r.date) && isFinite(r.nav) && r.nav > 0; })
+        .sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+      if (!list.length) return finish(new Error("净值接口无数据"));
+      fundHistCache[c] = list;
+      finish(null, list);
+    };
+    s.onerror = function () { finish(new Error("净值接口失败")); };
+    s.src = "https://fund.eastmoney.com/pingzhongdata/" + c + ".js?v=" + Date.now();
+    (document.head || document.documentElement).appendChild(s);
+  });
+}
 async function fetchFundNavOn(code, date) {
   const c = String(code).replace(/\D/g, "");
   if (c.length !== 6) throw new Error("基金代码需 6 位");
   if (!isDateStr(date)) throw new Error("日期无效");
-  const res = await jsonp(FUND_API.nav(c), 9000, "callback");
-  const rows = (res && res.Datas) || [];
-  const cand = rows.filter(function (r) { return String(r.FSRQ || "") <= date; })
-    .sort(function (a, b) { return a.FSRQ < b.FSRQ ? 1 : -1; })[0];
+  const list = await loadFundHistory(c);
+  const cand = list.filter(function (r) { return r.date <= date; }).pop();
   if (!cand) throw new Error("该日期暂无净值");
-  const v = parseFloat(cand.DWJZ);
-  if (!isFinite(v) || v <= 0) throw new Error("该日期暂无净值");
-  return { price: v, date: String(cand.FSRQ) };
+  return { price: cand.nav, date: cand.date };
 }
 async function fetchFundQuote(code) {
   const c = String(code).replace(/\D/g, "");
@@ -7305,6 +7339,16 @@ function gotoSection(name, id, sub) {
   /* 从弹窗里点过来的：先把弹窗收起来，别让浮层挡住目标 */
   if (document.querySelector(".overlay")) { try { Sheet.close(); } catch (e) { /* 没开着就算了 */ } }
   switchTab(name);
+  /* 资产分布的「投资」：跳到总览那张投资卡片并闪一下 */
+  if (name === "overview" && sub === "invest") {
+    const card = $("#ovInvStats") && $("#ovInvStats").closest(".card");
+    if (card) {
+      try { card.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { try { card.scrollIntoView(); } catch (e2) { /* 老浏览器 */ } }
+      card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
+      setTimeout(function () { card.classList.remove("flash"); }, 1600);
+    }
+    return;
+  }
   /* 资产分布点某项：只切到它自己的窗口（基金/股票/黄金、定存/现金），不再笼统停在第一个 */
   if (sub) {
     if (name === "holdings") { setHoldTab(sub); return; }
